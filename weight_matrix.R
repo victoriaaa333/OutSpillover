@@ -4,20 +4,8 @@
 #' Calculates the IPW for a single group. Used by \code{\link{wght_matrix}} to
 #' create a matrix of weights for each group and allocation scheme.
 #' 
-#' If \code{allocation} is an argument in the integrand function and
-#' \code{integrate_allocation == TRUE}, then the weight is calcuated as:
-#' 
-#' \deqn{\frac{1}{Pr(A|X)}}{1 / integrate(integrand)}
-#' 
-#' Otherwise, the weight is computed by:
-#' \deqn{\frac{\prod_{j=1}^n \alpha^A_j (1 - \alpha)^(1-
-#' A_j)}{Pr(A|X)}}{prod(allocation^A(1 - allocation)^A) / integrate(integrand)}
-#' 
-#' @param parameters vector of parameter values
-#' @param integrand function to pass to the argument 'f' of \code{\link{integrate}}.
+#' @param integrand function to pass to the denominator of IPW.
 #' @param allocation the allocation ratio for which to compute the weight
-#' @param integrate_allocation Indicator of whether the integrand function uses 
-#' the allocation parameter. Defaults to TRUE.
 #' @param ... other arguments passed to integrand.
 #' @return scalar result of the integral
 #' @export
@@ -54,7 +42,6 @@ wght_calc <- function(integrand,
 #' @param X covariate matrix
 #' @param A vector of treatment assignments
 #' @param G vector of group assignments
-#' @param parameters vector of parameters passed to \code{integrand}
 #' @param runSilent if FALSE, errors are printed to console. Defaults to TRUE.
 #' @inheritParams wght_calc
 #' @return a length(unique(group)) X length(alphas) matrix of group weights

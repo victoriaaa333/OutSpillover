@@ -1,5 +1,5 @@
 source("weight_matrix.R")
-source("ipw-point-estimates.R")
+source("ipw_point_estimates.R")
 source("integrand.R")
 source("utils.R")
 
