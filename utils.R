@@ -18,9 +18,9 @@ group_means <- function(H, A, G, a = NA){
     n <- length(x[ , 1])
     
     if(is.na(a)){
-      sum(x[ , 1])/n
+      mean(x[ , 1],na.rm = TRUE)
     } else {
-      sum(x[ , 1] * (x[ , 2] == a) * 1)/n
+      mean(x[ , 1] * (x[ , 2] == a) * 1,na.rm = TRUE)
     }
   })
   
@@ -45,12 +45,16 @@ h_neighborhood <- function(graph, Y, h){
   h_vector = c()
   vg = V(graph)
   num_vertices = length(vg)
-  if( h <= 0 ) stop('h has to be positive')
+  if( h < 0 ) stop('h has to be non-negative')
   
   for (j in 1:num_vertices) {
-    h_neighbor = setdiff(ego(g,h,vg[j])[[1]],
-                         ego(g,h-1,vg[j])[[1]])
-    h_out = ifelse(length(h_neighbor) > 0, mean(Y[h_neighbor]),0)
+    if (h == 0){
+      h_neighbor = ego(g,h,vg[j])[[1]]
+    }else{
+      h_neighbor = setdiff(ego(g,h,vg[j])[[1]],
+                           ego(g,h-1,vg[j])[[1]]) 
+    }
+    h_out = ifelse(length(h_neighbor) > 0, mean(Y[h_neighbor]),NA)
     h_vector = c(h_vector,h_out)
   }
   return(h_vector)

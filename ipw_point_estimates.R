@@ -16,7 +16,8 @@
 ipw_point_estimates <- function(H, G, A, weights){
   ## Necessary Bits ##
   grps     <- dimnames(weights)[[1]]
-  alphas   <- as.numeric(dimnames(weights)[[length(dim(weights))]])
+  alphas   <- dimnames(weights)[[length(dim(weights))]]
+  numerator_alphas <- as.numeric(lapply(alphas, function(l) substr(l[1],3,5)))
   trt_lvls <- sort(unique(A)) # binary if A = 1/0
   N <- length(grps)
   k <- length(alphas)
@@ -63,7 +64,8 @@ ipw_point_estimates <- function(H, G, A, weights){
     weights_trt <- array(dim= c(N, p, k))
     
     for(pp in 1:p){
-      weights_trt[ , pp, ] <- t(t(weights[ , pp, ])/((alphas^a * (1-alphas)^(1-a))))
+      weights_trt[ , pp, ] <- t(t(weights[ , pp, ])/
+                                  ((numerator_alphas^a * (1-numerator_alphas)^(1-a))))
     }
     
     # Compute estimates
@@ -76,6 +78,7 @@ ipw_point_estimates <- function(H, G, A, weights){
   
   out$outcomes <- list(groups = drop(hold_grp), 
                        overall = drop(hold_oal))
+  # TODO: bootstrap
   
   ## DONE ####
   return(out)

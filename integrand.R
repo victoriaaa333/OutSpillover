@@ -4,15 +4,18 @@
 #' Computes the following function:
 #' \deqn{\prod_{j=1}^{n} (\alpha)^{A_j}  (1 - \alpha)^{1 - A_j} 
 #' @param A vector of binary treatments 
-#' @param allocation The allocation strategy. Defaults to A so that is essentially 
-#' ignored if allocation is not set to a value within (0, 1).
+#' @param denominator_alpha The allocation strategy for denominator.
+#' @param P vector of first-stage randomization, default is 1 (one-stage)
 #' @return value of the integrand
 #' @export
 #' 
 #-----------------------------------------------------------------------------#
 
-integrand <- function(A, allocation)
-{
-  out <- prod(allocation^A * (1 - allocation)^(1-A))
+integrand <- function(A, denominator_alphas, P = 1)
+{ 
+  if (length(P) != length(denominator_alphas) | sum(P) != 1) stop('P is wrong')
+  prob_alphas = unlist(lapply(denominator_alphas, 
+                       function(alpha) prod(alpha^A * (1-alpha)^(1-A))))
+  out = sum(prob_alphas * P)
   return(out)
 }
