@@ -4,8 +4,7 @@
 # @param H vector of average of h-neighborhood
 # @param G vector of group assignments
 # @param A vector of treatment assignments
-# @param weights weight matrix/array to use from either \code{\link{wght_matrix}}
-# or \code{\link{wght_deriv_array}}
+# @param weights weight matrix/array to use from \code{\link{wght_matrix}}
 # @return list containing point estimates for marginal outcomes and estimates
 # per treatment level
 # @export

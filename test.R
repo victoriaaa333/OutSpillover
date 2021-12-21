@@ -40,7 +40,8 @@ df$Y = Y
 df$H = H
 df
 
-allocations = list(c(0.4,denominator_alphas[1]),c(0.4,denominator_alphas[2]))
+allocations = list(c(0.4,denominator_alphas[1]),c(0.4,denominator_alphas[2]),
+                   c(0.6,denominator_alphas[1]))
 w.matrix = wght_matrix(integrand,allocations, G, A, P)
 ipw_point_estimates(H,G,A,w.matrix)
 

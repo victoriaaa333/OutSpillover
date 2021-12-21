@@ -2,9 +2,9 @@
 #' Integrand for the group-level propensity score (Type I randomization)
 #' 
 #' Computes the following function:
-#' \deqn{\prod_{j=1}^{n} (\alpha)^{A_j}  (1 - \alpha)^{1 - A_j} 
+#' \deqn{\sum_{i = 1}^{m} P_i \prod_{j=1}^{n} (\alpha_i)^{A_j}  (1 - \alpha_i)^{1 - A_j} 
 #' @param A vector of binary treatments 
-#' @param denominator_alpha The allocation strategy for denominator.
+#' @param denominator_alphas The allocation strategies for denominator.
 #' @param P vector of first-stage randomization, default is 1 (one-stage)
 #' @return value of the integrand
 #' @export

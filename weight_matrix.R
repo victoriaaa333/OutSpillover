@@ -5,7 +5,8 @@
 #' create a matrix of weights for each group and allocation scheme.
 #' 
 #' @param integrand function to pass to the denominator of IPW.
-#' @param allocation the allocation ratio for which to compute the weight
+#' @param numerator_alpha the allocation ratio for which to compute the weight
+#' @param denominator_alphas the combinations of potential alphas
 #' @param ... other arguments passed to integrand.
 #' @return scalar result of the integral
 #' @export
@@ -59,9 +60,9 @@ wght_matrix <- function(integrand,
                         ...)
 {
   ## Gather necessary bits ##
-  p  <- ifelse(is.null(ncol(X)),0,ncol(X)) 
+  X_col  <- ifelse(is.null(ncol(X)),0,ncol(X)) 
   gg <- sort(unique(G))
-  denominator_alphas = unlist(lapply(allocations, function (x) x[2]))
+  denominator_alphas = unique(unlist(lapply(allocations, function (x) x[2])))
   
   ## Compute weight for each group and allocation level ##
   if(!runSilent) print('Calculating matrix of IP weights...') 
@@ -69,13 +70,12 @@ wght_matrix <- function(integrand,
   w.list <- lapply(allocations, function(allocation){
     w <- by(cbind(X, A), INDICES = G, simplify = FALSE, 
             FUN = function(x) {
-              print(allocation[1])
               wght_calc(
                         integrand  = integrand, 
                         numerator_alpha = allocation[1],
                         denominator_alphas = denominator_alphas, 
                         P = P,
-                        A = x[, p+1], X = ifelse(p == 0, x[,p], x[, 1:p]))})
+                        A = x[, X_col+1], X = ifelse(X_col == 0, x[,X_col], x[, 1:X_col]))})
     as.numeric(w)
   }) 
   
