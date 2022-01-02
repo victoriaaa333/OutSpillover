@@ -1,6 +1,6 @@
 group_direct_effect <- function(object)
 {
-  out <- object$outcomes$groups[,,2] - object$outcomes$groups[,,2]
+  out <- object$outcomes$groups[,,2] - object$outcomes$groups[,,1]
   return(out)
 }
 

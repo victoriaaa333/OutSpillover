@@ -8,7 +8,6 @@
 # estimates.
 # @return matrix of group means
 #-----------------------------------------------------------------------------#
-
 group_means <- function(H, A, G, a = NA){
   
   N <- length(unique(G))
@@ -28,6 +27,28 @@ group_means <- function(H, A, G, a = NA){
   
   return(out)
 }
+
+# group_means <- function(H, A, G, a = NA){
+#   
+#   N <- length(unique(G))
+#   inds <- 1:length(A)
+#   HA <- cbind(H, A)
+#   
+#   vals <- rep(NA, length(inds))
+#   for (i in 1:length(inds)) {
+#     if(is.na(a)){
+#       vals[i] = mean(HA[, 1][G == G[i]], na.rm = TRUE)
+#     }
+#     else {
+#       vals[i] = mean(HA[ , 1][G == G[i]] * 
+#                        (HA[ , 2] == a)[G == G[i]] * 1,na.rm = TRUE)
+#     }
+#   }
+#   
+#   out <- matrix(unlist(vals), nrow = N)
+#   
+#   return(out)
+# }
 
 # Assume we have a dataset with the following columns:
 # G vector of group assignments (clusters)
@@ -49,10 +70,10 @@ h_neighborhood <- function(graph, Y, h){
   
   for (j in 1:num_vertices) {
     if (h == 0){
-      h_neighbor = ego(g,h,vg[j])[[1]]
+      h_neighbor = ego(graph,h,vg[j])[[1]]
     }else{
-      h_neighbor = setdiff(ego(g,h,vg[j])[[1]],
-                           ego(g,h-1,vg[j])[[1]]) 
+      h_neighbor = setdiff(ego(graph,h,vg[j])[[1]],
+                           ego(graph,h-1,vg[j])[[1]]) 
     }
     h_out = ifelse(length(h_neighbor) > 0, mean(Y[h_neighbor]),NA)
     h_vector = c(h_vector,h_out)
@@ -61,3 +82,22 @@ h_neighborhood <- function(graph, Y, h){
   # 0 if no h-neighborhood
 }
 
+# The vertices in graph needs to be same order as Y
+h_counts <- function(graph, h){
+  h_vector = c()
+  vg = V(graph)
+  num_vertices = length(vg)
+  if( h < 0 ) stop('h has to be non-negative')
+  
+  for (j in 1:num_vertices) {
+    if (h == 0){
+      h_neighbor = ego(graph,h,vg[j])[[1]]
+    }else{
+      h_neighbor = setdiff(ego(graph,h,vg[j])[[1]],
+                           ego(graph,h-1,vg[j])[[1]]) 
+    }
+    h_out = length(h_neighbor)
+    h_vector = c(h_vector,h_out)
+  }
+  return(h_vector)
+}

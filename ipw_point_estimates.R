@@ -18,6 +18,7 @@ ipw_point_estimates <- function(H, G, A, weights){
   alphas   <- dimnames(weights)[[length(dim(weights))]]
   numerator_alphas <- as.numeric(lapply(alphas, function(l) substr(l[1],3,5)))
   trt_lvls <- sort(unique(A)) # binary if A = 1/0
+  grp_counts = as.vector(table(G))
   N <- length(grps)
   k <- length(alphas)
   l <- length(trt_lvls)
@@ -41,7 +42,7 @@ ipw_point_estimates <- function(H, G, A, weights){
   grp_est <- apply(weights, 2:3, function(x) x * Hbar) 
   dimnames(grp_est) <- list(grps, predictors, alphas)
   
-  oa_est <- apply(grp_est, 2:3, sum, na.rm = TRUE)/N
+  oa_est <- apply(grp_est, 2:3, mean, na.rm = TRUE)
   
   out$marginal_outcomes$groups <- drop(grp_est)
   out$marginal_outcomes$overall <- drop(oa_est)
@@ -57,19 +58,24 @@ ipw_point_estimates <- function(H, G, A, weights){
     a <- trt_lvls[ll]
     
     # Compute means per group
-    Hbar_trt <- group_means(H = H, A = A, G = G, a = a)
+    #Hbar_trt <- group_means(H = H, A = A, G = G, a = a)
     
     # Modify weights per treatment level
-    weights_trt <- array(dim= c(N, p, k))
+    weights_trt <- array(dim= c(length(A), p, k))
     
     for(pp in 1:p){
-      weights_trt[ , pp, ] <- t(t(weights[ , pp, ])/
-                                  ((numerator_alphas^a * (1-numerator_alphas)^(1-a))))
+      for (kk in 1:k) {
+        weights_trt[ , pp, kk] <- apply(as.array(G), 1, function(x) weights[,pp,kk][x])
+        weights_trt[ , pp, kk] <- weights_trt[ , pp, kk] * (A == a)/
+          (numerator_alphas[kk]^a * (1-numerator_alphas[kk])^(1-a))
+      }
     }
-    
+   
     # Compute estimates
-    grp_est <- apply(weights_trt, 2:3, function(x) x * Hbar_trt) 
-    oal_est <- apply(grp_est, 2:3, sum, na.rm = TRUE)/N
+    ind_est <- apply(weights_trt, 2:3, function(x) x * H) 
+    grp_est <- array(dim= c(N, p, k))
+    grp_est[, p, ] <- apply(ind_est, 3, group_means, A, G) 
+    oal_est <- apply(grp_est, 2:3, mean, na.rm = TRUE)
     
     hold_grp[ , , , ll] <- grp_est
     hold_oal[ , , ll]   <- oal_est
