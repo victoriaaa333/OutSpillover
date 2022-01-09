@@ -50,6 +50,15 @@ group_means <- function(H, A, G, a = NA){
 #   return(out)
 # }
 
+group_vector <- function(g){
+  number_G = length(groups(components(g)))
+  G = rep(NA,number_G)
+  for (i in 1:number_G) {
+    G[unlist(groups(components(g))[[i]])] = i # vertex indices in group i
+  }
+  return(G)
+}
+
 # Assume we have a dataset with the following columns:
 # G vector of group assignments (clusters)
 # A vector of assignments
@@ -101,3 +110,26 @@ h_counts <- function(graph, h){
   }
   return(h_vector)
 }
+
+true_ind_effect <- function(z_jk, n_k, alphas, a, b, P = 1){
+  if( length(alphas) != length(P) ) stop('P is not the same length as alphas')
+  prob_peralpha = as.vector(sapply(alphas, function(alpha)
+          sum((a * z_jk + b * 0:(n_k - 1)) *
+            dbinom(0:(n_k - 1), size = (n_k - 1), prob = alpha)))) 
+  sum(prob_peralpha * P)
+}
+
+true_cluster_effect <- function(g_info, alphas, a, b, P = 1){
+  # number of units in that cluster
+  count_g = g_info[1] 
+  # whether this cluster has no units with h-order neighbors,
+  # if so, set the cluster effect to NA.
+  is.h = g_info[2] 
+  c(true_ind_effect(0, count_g, alphas, a, b, P), true_ind_effect(1, count_g, alphas, a, b, P)) * is.h
+}
+
+true_population_effect <- function(G_info, alphas, a, b, P = 1){
+  # G_info contains information about whether this cluster is NA or not
+  rowMeans(apply(G_info, 1, true_cluster_effect, alphas, a, b, P), na.rm = TRUE)
+}
+

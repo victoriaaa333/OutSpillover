@@ -66,10 +66,10 @@ BootVar <- function(dta, numerator_alpha, alpha, B = 1000,
     chosen_clusters[, bb] <- boot_dta$chosen_clusters
     
     boot_dta <- boot_dta$boot_dta
-    neigh_ind <- lapply(1 : max(boot_dta$neigh),
-                        function(nn) which(boot_dta$neigh == nn))
-    
-    allocations = list(c(numerator_alpha,alpha))
+    # neigh_ind <- lapply(1 : max(boot_dta$neigh),
+    #                     function(nn) which(boot_dta$neigh == nn))
+    # 
+    allocations = list(c(numerator_alpha, alpha))
     w.matrix = wght_matrix(integrand, allocations, boot_dta$neigh, boot_dta$A, P)
     
     ygroup_boot <- ipw_point_estimates(boot_dta$H, boot_dta$neigh, 
@@ -78,7 +78,7 @@ BootVar <- function(dta, numerator_alpha, alpha, B = 1000,
         dim(ygroup_boot) <- c(dim(ygroup_boot)[1],dim(ygroup_boot)[2],length(alpha))
     }
     ygroup[, , , bb] <- ygroup_boot
-    boots[, , bb] <- apply(ygroup_boot, c(2, 3), mean)
+    boots[, , bb] <- apply(ygroup_boot, c(2, 3), mean, na.rm = TRUE) # take averages across all clusters
     #array(NA, dim = c(n_neigh, 2, length(alpha)))
   }
     

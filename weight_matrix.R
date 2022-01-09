@@ -62,7 +62,8 @@ wght_matrix <- function(integrand,
   ## Gather necessary bits ##
   X_col  <- ifelse(is.null(ncol(X)),0,ncol(X)) 
   gg <- sort(unique(G))
-  denominator_alphas = unique(unlist(lapply(allocations, function (x) x[2])))
+  #denominator_alphas = unique(unlist(lapply(allocations, function (x) x[2])))
+  denominator_alphas = unique(unlist(lapply(allocations, function (x) x[-1])))
   
   ## Compute weight for each group and allocation level ##
   if(!runSilent) print('Calculating matrix of IP weights...') 

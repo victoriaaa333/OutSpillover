@@ -74,7 +74,7 @@ ipw_point_estimates <- function(H, G, A, weights){
     # Compute estimates
     ind_est <- apply(weights_trt, 2:3, function(x) x * H) 
     grp_est <- array(dim= c(N, p, k))
-    grp_est[, p, ] <- apply(ind_est, 3, group_means, A, G) 
+    grp_est[, p, ] <- apply(ind_est, 3, group_means, A, G, a) 
     oal_est <- apply(grp_est, 2:3, mean, na.rm = TRUE)
     
     hold_grp[ , , , ll] <- grp_est
