@@ -11,10 +11,12 @@ source("bootstrap_variance.R")
 library(igraph)
 graph = make_empty_graph(n = 0, directed = FALSE)
 
+##TODO
 repeat{
-  g = sample_gnm(n = 120, m = 120)
-  cls = clusters(g)
-  g2 <- delete_vertices(g, V(g)[cls$membership %in% which(cls$csize <= 80)])
+  #g = sample_gnm(n = 120, m = 120)
+  g2 = sample_gnp(100, 0.5, directed = FALSE, loops = FALSE)
+  #cls = clusters(g)
+  #g2 <- delete_vertices(g, V(g)[cls$membership %in% which(cls$csize <= 80)])
   clusters(g2)$csize
   if (clusters(g2)$no == 1){
     graph = disjoint_union(graph, g2)
@@ -23,6 +25,7 @@ repeat{
     break
   }
 }
+#sample_gnp(100, 0.5, directed = FALSE, loops = FALSE)
 
 G = group_vector(graph) 
 
@@ -158,4 +161,13 @@ for (k in 1:100) {
 }
 mean(ipw_2stage[,1]) #76.32368
 mean(ipw_2stage[,2]) #81.9589
+
+
+## 1. run multiple times
+## 2. change graph and outcome models
+## 3. see variance
+
+# causal effect depends on hypothetical treatment allocation
+# denominator is the propensity score, different experimental design 
+# lead to different estimators, resulting in different denominators.
 

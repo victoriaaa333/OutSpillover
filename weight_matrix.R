@@ -89,4 +89,75 @@ wght_matrix <- function(integrand,
   return(w.matrix)
 }
 
+wght_deriv_calc <- function(integrand,
+                            parameters,
+                            allocation,
+                            integrate_allocation = TRUE,
+                            ...)
+{  
+  ## Necessary pieces ##
+  integrand <- match.fun(integrand)
+  dots <- list(...)
+  
+  ## Integrand and  arguments ##
+  int.args <- append(get_args(integrand, dots),
+                     get_args(stats::integrate, dots))
+  
+  args <- append(append(int.args, get_args(numDeriv::grad, dots)),
+                 list(func       = wght_calc, 
+                      integrand  = integrand, 
+                      allocation = allocation,
+                      x          = parameters))
+  
+  dervs <- do.call(numDeriv::grad, args = args)
+  
+  dervs
+}
+
+wght_deriv_array <- function(parameters, 
+                             integrand, 
+                             allocations, 
+                             G, A, P, 
+                             X = NULL,
+                             runSilent = TRUE, 
+                             integrate_allocation = TRUE,
+                             ...)
+{
+  ## Gather necessary bits ##
+  integrand <- match.fun(integrand)
+  XX <- cbind(X, A)
+  #p  <- ncol(X) # number of predictors
+  p <- ifelse(is.null(ncol(X)),0,ncol(X)) 
+  pp <- length(parameters)
+  aa <- sort(allocations) # Make sure alphas are sorted
+  gg <- sort(unique(G))
+  k  <- length(allocations) 
+  N  <- length(unique(G))
+  dots <- list(...)
+  
+  ## Warnings ##
+  
+  ## Compute weight (derivative) for each group, parameter, and alpha level ##
+  if(!runSilent) print('Calculating array of IP weight derivatives...')
+  
+  w.list <- lapply(aa, function(allocation){
+    w <- by(XX, INDICES = G, simplify = TRUE, 
+            FUN = function(x) {
+              wght_deriv_calc(parameters = parameters,
+                              integrand  = integrand, 
+                              allocation = allocation, 
+                              integrate_allocation = FALSE,
+                              A = x[, p+1], 
+                              X = x[, 1:p], 
+                              ...)})
+    w2 <- matrix(unlist(w, use.names = FALSE), ncol = pp, byrow = TRUE)
+    return(w2)}) 
+  
+  ## Reshape list into array ##
+  out <- array(unlist(w.list, use.names = FALSE), 
+               dim = c(N, pp, k),
+               dimnames = list(gg, names(parameters), aa))
+  
+  return(out)
+}
 

@@ -5,6 +5,8 @@
 # @param G vector of group assignments
 # @param A vector of treatment assignments
 # @param weights weight matrix/array to use from \code{\link{wght_matrix}}
+# @param X matrix of covariates
+# @param x0 vector of specific covariates conditioned on 
 # @return list containing point estimates for marginal outcomes and estimates
 # per treatment level
 # @export
@@ -12,7 +14,7 @@
 
 # At the moment, we assume weights is a matrix, and type I randomization
 
-ipw_point_estimates <- function(H, G, A, weights){
+ipw_point_estimates <- function(H, G, A, weights, X = NULL, x0 = NULL){
   ## Necessary Bits ##
   grps     <- dimnames(weights)[[1]]
   alphas   <- dimnames(weights)[[length(dim(weights))]]
@@ -37,14 +39,21 @@ ipw_point_estimates <- function(H, G, A, weights){
   out <- list()
   
   ## CALCULATE MARGINAL ESTIMATES ####
-  Hbar <- group_means(H = H, A = A, G = G, a = NA) # average for each groups, marginalized over all treatments.
+  Hbar <- group_means(H = H, A = A, G = G,
+                      X = X, x0 = x0, a = NA) # average for each groups, marginalized over all treatments.
   
   grp_est <- apply(weights, 2:3, function(x) x * Hbar) 
   dimnames(grp_est) <- list(grps, predictors, alphas)
   
   oa_est <- apply(grp_est, 2:3, mean, na.rm = TRUE)
   
-  out$marginal_outcomes$groups <- drop(grp_est)
+  if (k == 1){
+    grp_est1 <- as.matrix(drop(grp_est))
+    colnames(grp_est1) <- alphas
+    out$marginal_outcomes$groups <- grp_est1
+  }else{
+    out$marginal_outcomes$groups <- drop(grp_est)
+  }
   out$marginal_outcomes$overall <- drop(oa_est)
   
   ## CALCULATE OUTCOME ESTIMATES PER TREATMENT LEVEL####
@@ -74,7 +83,7 @@ ipw_point_estimates <- function(H, G, A, weights){
     # Compute estimates
     ind_est <- apply(weights_trt, 2:3, function(x) x * H) 
     grp_est <- array(dim= c(N, p, k))
-    grp_est[, p, ] <- apply(ind_est, 3, group_means, A, G, a) 
+    grp_est[, p, ] <- apply(ind_est, 3, group_means, A, G, X, x0, a) 
     oal_est <- apply(grp_est, 2:3, mean, na.rm = TRUE)
     
     hold_grp[ , , , ll] <- grp_est

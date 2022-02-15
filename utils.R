@@ -6,20 +6,33 @@
 # @param A vector of treatment assignments
 # @param a value of treatment level, defaults to NA. NA is used for marginal
 # estimates.
+# @param X matrix of covariates
+# @param x0 vector of specific covariates conditioned on 
 # @return matrix of group means
 #-----------------------------------------------------------------------------#
-group_means <- function(H, A, G, a = NA){
-  
+
+group_means <- function(H, A, G, X = NULL, x0 = NULL, a = NA){
+  #if (dim(X)[2] != length(x0)) stop('X and x0 should be the same dimension')
   N <- length(unique(G))
-  HA <- cbind(H, A)
+  HAX <- cbind(H, A, X)
   
-  vals <- by(HA, INDICES = G, function(x){
-    n <- length(x[ , 1])
-    
-    if(is.na(a)){
-      mean(x[ , 1],na.rm = TRUE)
-    } else {
-      mean(x[ , 1] * (x[ , 2] == a) * 1,na.rm = TRUE)
+  vals <- by(HAX, INDICES = G, function(x){
+    #n <- length(x[ , 1])
+    if(is.null(X)){
+      if(is.na(a)){
+        mean(x[ , 1], na.rm = TRUE)
+      } else {
+        mean(x[ , 1] * (x[ , 2] == a) * 1, na.rm = TRUE)
+      }
+    }else{
+      influencer_cond = apply(as.matrix(HAX[,3:dim(HAX)[2]]), 1, 
+                              function(x) ifelse(prod(x == x0), 1, NA)) 
+      # indicator of whether this influencer is conditional on x0, 1 or NA (remove this influencer when taking ave)
+      if(is.na(a)){
+        mean(x[ , 1] * influencer_cond, na.rm = TRUE)
+      } else {
+        mean(x[ , 1] * (x[ , 2] == a) * influencer_cond, na.rm = TRUE)
+      }
     }
   })
   
@@ -28,6 +41,36 @@ group_means <- function(H, A, G, a = NA){
   return(out)
 }
 
+# only condition on neighborhoods
+# group_means <- function(H, A, G, X = NULL, x0 = NULL, a = NA){
+#   #if (dim(X)[2] != length(x0)) stop('X and x0 should be the same dimension')
+#   N <- length(unique(G))
+#   HAX <- cbind(H, A, X)
+#   
+#   vals <- by(HAX, INDICES = G, function(x){
+#     #n <- length(x[ , 1])
+#     if(is.null(X)){
+#       if(is.na(a)){
+#         mean(x[ , 1],na.rm = TRUE)
+#       } else {
+#         mean(x[ , 1] * (x[ , 2] == a) * 1,na.rm = TRUE)
+#       }
+#     }else{
+#       if(is.na(a)){
+#         mean(x[ , 1] * (x[ , 3:dim(HAX)[2]] == x0), na.rm = TRUE)
+#       } else {
+#         mean(x[ , 1] * (x[ , 3:dim(HAX)[2]] == x0) * (x[ , 2] == a) * 1,na.rm = TRUE)
+#       }
+#     }
+# # TODO: change (x[ , 3:dim(HAX)[2]] == x0) to indicator
+#   })
+#   
+#   out <- matrix(unlist(vals), nrow = N)
+#   
+#   return(out)
+# }
+
+# no condition
 # group_means <- function(H, A, G, a = NA){
 #   
 #   N <- length(unique(G))
@@ -71,7 +114,8 @@ group_vector <- function(g){
 # Calculate h-neighborhood averages
 
 # The vertices in graph needs to be same order as Y
-h_neighborhood <- function(graph, Y, h){
+# X and x1 is the covariate matrix and the condition for neighbors
+h_neighborhood <- function(graph, Y, h, X = NULL, x1 = NULL){
   h_vector = c()
   vg = V(graph)
   num_vertices = length(vg)
@@ -84,12 +128,38 @@ h_neighborhood <- function(graph, Y, h){
       h_neighbor = setdiff(ego(graph,h,vg[j])[[1]],
                            ego(graph,h-1,vg[j])[[1]]) 
     }
-    h_out = ifelse(length(h_neighbor) > 0, mean(Y[h_neighbor]),NA)
+    if (!is.null(X)){
+      neigh_cond = apply(as.matrix(X[h_neighbor, ]), 1, function(x) ifelse(prod(x == x1), 1, NA))
+      h_out = ifelse(length(h_neighbor) > 0, mean(Y[h_neighbor] * neigh_cond, na.rm = TRUE), NA)
+    }else{
+      h_out = ifelse(length(h_neighbor) > 0, mean(Y[h_neighbor]), NA)
+    }
     h_vector = c(h_vector,h_out)
   }
   return(h_vector)
   # 0 if no h-neighborhood
 }
+
+# no-condition version
+# h_neighborhood <- function(graph, Y, h){
+#   h_vector = c()
+#   vg = V(graph)
+#   num_vertices = length(vg)
+#   if( h < 0 ) stop('h has to be non-negative')
+#   
+#   for (j in 1:num_vertices) {
+#     if (h == 0){
+#       h_neighbor = ego(graph,h,vg[j])[[1]]
+#     }else{
+#       h_neighbor = setdiff(ego(graph,h,vg[j])[[1]],
+#                            ego(graph,h-1,vg[j])[[1]]) 
+#     }
+#     h_out = ifelse(length(h_neighbor) > 0, mean(Y[h_neighbor]),NA)
+#     h_vector = c(h_vector,h_out)
+#   }
+#   return(h_vector)
+#   # 0 if no h-neighborhood
+# }
 
 # The vertices in graph needs to be same order as Y
 h_counts <- function(graph, h){
@@ -106,6 +176,26 @@ h_counts <- function(graph, h){
                            ego(graph,h-1,vg[j])[[1]]) 
     }
     h_out = length(h_neighbor)
+    h_vector = c(h_vector,h_out)
+  }
+  return(h_vector)
+}
+
+# the number of treated for each node's h-order neighborhood
+h_neighsum <- function(graph, A, h){
+  h_vector = c()
+  vg = V(graph)
+  num_vertices = length(vg)
+  if( h < 0 ) stop('h has to be non-negative')
+  
+  for (j in 1:num_vertices) {
+    if (h == 0){
+      h_neighbor = ego(graph,h,vg[j])[[1]]
+    }else{
+      h_neighbor = setdiff(ego(graph,h,vg[j])[[1]],
+                           ego(graph,h-1,vg[j])[[1]]) 
+    }
+    h_out = sum(A[h_neighbor])
     h_vector = c(h_vector,h_out)
   }
   return(h_vector)
@@ -133,3 +223,12 @@ true_population_effect <- function(G_info, alphas, a, b, P = 1){
   rowMeans(apply(G_info, 1, true_cluster_effect, alphas, a, b, P), na.rm = TRUE)
 }
 
+get_args <- function(FUN, args_list = NULL, ...){
+  dots <- append(args_list, list(...))
+  arg_names <- names(formals(match.fun(FUN)))
+  
+  args <- dots[arg_names]
+  args[sapply(args, is.null)] <- NULL
+  
+  return(args)
+}
