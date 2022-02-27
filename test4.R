@@ -16,7 +16,7 @@ library(igraph)
 twostage0 = c()
 twostage_ipw = c()
 mvar_ipw = c()
-for (i in 1:20) {
+for (i in 1:10) {
   graph = make_empty_graph(n = 0, directed = FALSE)
   repeat{
     g2 = sample_gnp(100, 0.5, directed = FALSE, loops = FALSE)
@@ -49,6 +49,7 @@ for (i in 1:20) {
   
   Y = apply(cbind(df$A,df$neighbor_sum), 1, 
             function(x)  rnorm(1, mean = a*x[1] +  b*x[2], sd = 1))  
+  # TODO: interaction between x[2] and covariates; change x[2] to number of treated neighbors with certain characteristics.
   H = h_neighborhood(graph,Y,0) 
   df$Y = Y
   df$H = H
@@ -69,7 +70,7 @@ for (i in 1:20) {
   #               population_direct_effect(ipw_point_estimates(df$H, df$G, df$A,w.matrix)))
   mvar_ipw <- c(mvar_ipw,
                 ipw_effect_calc(w.matrix, point_estimates, effect_type ='outcome', 
-                                marginal = TRUE, allocation1, allocation2)[2][[1]])
+                                marginal = FALSE, allocation1, allocation2)[2][[1]])
                 
 }
 mean(mvar_ipw) #12.06922
@@ -122,8 +123,7 @@ for (i in 1:10) {
   allocation2 <- NA
   mvar_ipw <- c(mvar_ipw,
                 ipw_effect_calc(w.matrix, point_estimates, effect_type ='outcome', 
-                                marginal = TRUE, allocation1, allocation2)[2][[1]]
-  )
+                                marginal = TRUE, allocation1, allocation2)[2][[1]])
 }
 mean(mvar_ipw) #0.7525083
 sd(onestage_ipw) #0.7682715

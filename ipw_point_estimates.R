@@ -76,7 +76,7 @@ ipw_point_estimates <- function(H, G, A, weights, X = NULL, x0 = NULL){
       for (kk in 1:k) {
         weights_trt[ , pp, kk] <- apply(as.array(G), 1, function(x) weights[,pp,kk][x])
         weights_trt[ , pp, kk] <- weights_trt[ , pp, kk] * (A == a)/
-          (numerator_alphas[kk]^a * (1-numerator_alphas[kk])^(1-a))
+          (numerator_alphas[kk]^a * (1-numerator_alphas[kk])^(1-a)) # add some comments
       }
     }
    
@@ -89,10 +89,16 @@ ipw_point_estimates <- function(H, G, A, weights, X = NULL, x0 = NULL){
     hold_grp[ , , , ll] <- grp_est
     hold_oal[ , , ll]   <- oal_est
   }
-  
-  out$outcomes <- list(groups = drop(hold_grp), 
-                       overall = drop(hold_oal))
-  # TODO: bootstrap
+  if (k == 1){
+    out$outcomes$groups <- array(hold_grp, dim = c(N, k, l), 
+                                 dimnames = list(grps, alphas, trt_lvls))
+    
+    out$outcomes$overall <- array(hold_oal, dim = c(k, l),
+                                    dimnames = list(alphas, trt_lvls))
+  }else{
+    out$outcomes <- list(groups = drop(hold_grp), 
+                         overall = drop(hold_oal))
+  }
   
   ## DONE ####
   return(out)

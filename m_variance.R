@@ -82,7 +82,7 @@ ipw_effect_calc <- function(weights,
   oal  <- point_estimates[[fff]]$overall
   grp  <- point_estimates[[fff]]$groups
   
-  if(effect_type == 'contrast'){
+  if(effect_type == 'contrast'){ # TODO: change the name and check for a1 a2 to be the same allocation.
     if(marginal == TRUE){
       pe          <- oal[a1] - oal[a2]
       pe_grp_diff <- (grp[ , a1] - oal[a1]) - (grp[, a2] - oal[a2])
@@ -90,13 +90,14 @@ ipw_effect_calc <- function(weights,
       #   U_pe_grp    <- Ugrp[ , , a1] - Ugrp[ , , a2]
       # }
     } else {
-      pe          <- oal[a1, t1] - oal[a2, t2]
+      pe          <- oal[a1, t1] - oal[a2, t2] 
       pe_grp_diff <- (grp[ , a1, t1] - oal[a1, t1]) - (grp[ , a2, t2] - oal[a2, t2])
       # if(variance_estimation == 'robust'){
       #   U_pe_grp    <- Ugrp[ , , a1, t1] - Ugrp[ , , a2, t2]
       # }
     }
   } else {
+    # default is control-outcome
     if(marginal == TRUE){
       pe          <- oal[a1] 
       pe_grp_diff <- (grp[ , a1] - oal[a1])

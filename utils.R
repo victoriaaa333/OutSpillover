@@ -29,9 +29,9 @@ group_means <- function(H, A, G, X = NULL, x0 = NULL, a = NA){
                               function(x) ifelse(prod(x == x0), 1, NA)) 
       # indicator of whether this influencer is conditional on x0, 1 or NA (remove this influencer when taking ave)
       if(is.na(a)){
-        mean(x[ , 1] * influencer_cond, na.rm = TRUE)
+        mean(as.numeric(x[ , 1]) * influencer_cond, na.rm = TRUE)
       } else {
-        mean(x[ , 1] * (x[ , 2] == a) * influencer_cond, na.rm = TRUE)
+        mean(as.numeric(x[ , 1]) * (x[ , 2] == a) * influencer_cond, na.rm = TRUE)
       }
     }
   })
@@ -181,8 +181,8 @@ h_counts <- function(graph, h){
   return(h_vector)
 }
 
-# the number of treated for each node's h-order neighborhood
-h_neighsum <- function(graph, A, h){
+# the number of treated units for each node's h-order neighborhood
+h_neighsum <- function(graph, A, h, X = NULL, x1 = NULL){
   h_vector = c()
   vg = V(graph)
   num_vertices = length(vg)
@@ -195,9 +195,16 @@ h_neighsum <- function(graph, A, h){
       h_neighbor = setdiff(ego(graph,h,vg[j])[[1]],
                            ego(graph,h-1,vg[j])[[1]]) 
     }
-    h_out = sum(A[h_neighbor])
-    h_vector = c(h_vector,h_out)
-  }
+    
+    if (!is.null(X)){
+      neigh_cond = apply(as.matrix(X[h_neighbor, ]), 1, 
+                         function(x) ifelse(prod(x == x1), 1, NA)) # check if X is the same as x1
+      h_out = ifelse(length(h_neighbor) > 0, sum(A[h_neighbor] * neigh_cond, na.rm = TRUE), NA)
+    }else{
+      h_out = ifelse(length(h_neighbor) > 0, sum(A[h_neighbor]), NA)}
+      #h_out = sum(A[h_neighbor])
+      h_vector = c(h_vector,h_out)
+    }
   return(h_vector)
 }
 
