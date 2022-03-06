@@ -80,10 +80,11 @@ ipw_point_estimates <- function(H, G, A, weights, X = NULL, x0 = NULL){
       }
     }
    
+    #a = 0, mean(ind_est[1:100]* ifelse(X[1:100] == "M",1,NA) * ifelse(A[1:100] == 0,1,NA), na.rm = TRUE)
     # Compute estimates
     ind_est <- apply(weights_trt, 2:3, function(x) x * H) 
     grp_est <- array(dim= c(N, p, k))
-    grp_est[, p, ] <- apply(ind_est, 3, group_means, A, G, X, x0, a) 
+    grp_est[, p, ] <- apply(ind_est, 3, group_means, A, G, X, x0, a = NA) # TODO (03/04): check here 
     oal_est <- apply(grp_est, 2:3, mean, na.rm = TRUE)
     
     hold_grp[ , , , ll] <- grp_est

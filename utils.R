@@ -22,16 +22,20 @@ group_means <- function(H, A, G, X = NULL, x0 = NULL, a = NA){
       if(is.na(a)){
         mean(x[ , 1], na.rm = TRUE)
       } else {
-        mean(x[ , 1] * (x[ , 2] == a) * 1, na.rm = TRUE)
+        #trt_cond = apply(x[, 2], 1, function(x) ifelse(x == a, 1, NA))
+        mean(x[ , 1] * ifelse(x[,2] == a, 1, NA) * 1, na.rm = TRUE)
       }
     }else{
-      influencer_cond = apply(as.matrix(HAX[,3:dim(HAX)[2]]), 1, 
-                              function(x) ifelse(prod(x == x0), 1, NA)) 
+      if(is.null(x0)){
+        influencer_cond = rep(1, dim(x)[1])
+      }else{
+        influencer_cond = apply(as.matrix(x[,3:dim(HAX)[2]]), 1, 
+                                function(x) ifelse(prod(x == x0), 1, NA))}
       # indicator of whether this influencer is conditional on x0, 1 or NA (remove this influencer when taking ave)
       if(is.na(a)){
         mean(as.numeric(x[ , 1]) * influencer_cond, na.rm = TRUE)
       } else {
-        mean(as.numeric(x[ , 1]) * (x[ , 2] == a) * influencer_cond, na.rm = TRUE)
+        mean(as.numeric(x[ , 1]) * ifelse(x[, 2] == a, 1, NA) * influencer_cond, na.rm = TRUE)
       }
     }
   })

@@ -47,9 +47,10 @@ for (i in 1:50) {
   #checked that the sum of above is the same as h_neighsum(graph, A, 1)
   df$X_numeric <- ifelse(df$X == "F", 1, 0)
   
-  a = 2; b = 20; c = 15
-  Y = apply(cbind(df$A,df$X_numeric, df$treated_female_neigh), 1, 
-            function(x)  rnorm(1, mean = a*x[1] + b*x[2] + c*x[3], sd = 1))  # df$treated_male_neigh, 
+  a = 2; b = 0; c = 5
+  Y = apply(cbind(df$A, df$X_numeric, df$treated_female_neigh), 1, 
+            function(x)  rnorm(1, mean = a*x[1] + b*x[2] + c*x[3], sd = 1))  
+  # x[2] change to the number of females neighbors 
   
   H = h_neighborhood(graph, Y, 1) 
   H_F = h_neighborhood(graph, Y, 1, X, x1 = "F") 
@@ -57,6 +58,7 @@ for (i in 1:50) {
   df$H = H
   head(df)
   
+   
   allocations = list(c(0.5,denominator_alphas))
   w.matrix = wght_matrix(integrand, allocations, G, A, P)
   
@@ -65,7 +67,7 @@ for (i in 1:50) {
   G_info = cbind(as.vector(table(G)),na.group)
   
   point_estimates  <- ipw_point_estimates(H, G, A, w.matrix)
-  point_estimates1  <- ipw_point_estimates(H, G, A, w.matrix, X = X, x0 = "F")
+  point_estimates1  <- ipw_point_estimates(H, G, A, w.matrix, X = X, x0 = "M")
   point_estimatesF  <- ipw_point_estimates(H_F, G, A, w.matrix)
   
   aa <- rbind(aa,
@@ -80,24 +82,24 @@ for (i in 1:50) {
                 point_estimates1$marginal_outcomes$overall # should be nearly the same
               )
               )
- 
-   
-  
-  
-  # alphas   <- dimnames(w.matrix)[[length(dim(w.matrix))]]
-  # allocation1 <- alphas[1]
-  # allocation2 <- allocation1
-  #  aa = c(aa, ipw_effect_calc(w.matrix, point_estimates, effect_type ='contrast', 
-  #                  marginal = FALSE, allocation1, allocation2)[1][[1]])
-  #  bb = c(bb, ipw_effect_calc(w.matrix, point_estimates_F, effect_type ='contrast', 
-  #                             marginal = FALSE, allocation1, allocation2)[1][[1]])
 }
-colMeans(aa)  # b = 0
-              # x0 = NULL, x1 = NULL, when h = 1, 7.167375 (c/2)
-              # x0 = NULL, x1 = "F", when h = 1, 7.181179 (c/2)
-              # x0 = "F", x1 = NULL, when h = 1, 7.234829 (c/2)
-colMeans(bb) # 188.4293    186.3833    188.4651 
 
+# colMeans(aa)  # b = 0
+#               # x0 = NULL, x1 = NULL, when h = 1, 7.167375 (c/2)
+#               # x0 = NULL, x1 = "F", when h = 1, 7.181179 (c/2)
+#               # x0 = "F", x1 = NULL, when h = 1, 7.234829 (c/2)
+
+colMeans(aa)  
+# [1] 2.9674848 2.9647760 0.3055283
+
+colMeans(bb) 
+# 63.90863    63.30353    63.27293 
+
+
+
+# b = 0 
+#7.167375 7.181179 7.234829
+# 188.4293    186.3833    188.4651 
 # b= 10
 #6.872444 6.848343 7.006094
 #193.2092    196.3681    193.2459 
@@ -105,3 +107,6 @@ colMeans(bb) # 188.4293    186.3833    188.4651
 # b = 20
 #6.965107 6.944501 7.281182
 #198.3724    206.4918    198.4122 
+
+# increasing b will increase marginal effect for both "overall" population (by b/2), and 
+# only consider female when calculating H (by b)
