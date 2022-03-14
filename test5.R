@@ -67,8 +67,8 @@ for (i in 1:50) {
   G_info = cbind(as.vector(table(G)),na.group)
   
   point_estimates  <- ipw_point_estimates(H, G, A, w.matrix)
-  point_estimates1  <- ipw_point_estimates(H, G, A, w.matrix, X = X, x0 = "M")
   point_estimatesF  <- ipw_point_estimates(H_F, G, A, w.matrix)
+  point_estimates1  <- ipw_point_estimates(H, G, A, w.matrix, X = X, x0 = "M")
   
   aa <- rbind(aa,
               c(point_estimates$outcomes$overall[2] -  point_estimates$outcomes$overall[1],
@@ -84,10 +84,6 @@ for (i in 1:50) {
               )
 }
 
-# colMeans(aa)  # b = 0
-#               # x0 = NULL, x1 = NULL, when h = 1, 7.167375 (c/2)
-#               # x0 = NULL, x1 = "F", when h = 1, 7.181179 (c/2)
-#               # x0 = "F", x1 = NULL, when h = 1, 7.234829 (c/2)
 
 colMeans(aa)  
 # [1] 2.9674848 2.9647760 0.3055283
@@ -96,6 +92,10 @@ colMeans(bb)
 # 63.90863    63.30353    63.27293 
 
 
+# colMeans(aa)  # b = 0
+#               # x0 = NULL, x1 = NULL, when h = 1, 7.167375 (c/2)
+#               # x0 = NULL, x1 = "F", when h = 1, 7.181179 (c/2)
+#               # x0 = "F", x1 = NULL, when h = 1, 7.234829 (c/2)
 
 # b = 0 
 #7.167375 7.181179 7.234829
