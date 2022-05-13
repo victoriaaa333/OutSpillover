@@ -243,3 +243,64 @@ get_args <- function(FUN, args_list = NULL, ...){
   
   return(args)
 }
+
+
+
+####### helper function for test10
+# 1. the sum of the covariates in thetreated units for each node's h-order neighborhood
+cov_neighsum <- function(graph, A, h, X = NULL, x1 = NULL){
+  h_vector = c()
+  vg = V(graph)
+  num_vertices = length(vg)
+  if( h < 0 ) stop('h has to be non-negative')
+  
+  for (j in 1:num_vertices) {
+    if (h == 0){
+      h_neighbor = ego(graph,h,vg[j])[[1]]
+    }else{
+      h_neighbor = setdiff(ego(graph,h,vg[j])[[1]],
+                           ego(graph,h-1,vg[j])[[1]]) 
+    }
+    
+    if (!is.null(X)){
+      neigh_cond = apply(as.matrix(X[h_neighbor, ]), 1, 
+                         function(x) ifelse(prod(x == x1), 1, NA)) # check if X is the same as x1
+      h_out = ifelse(length(h_neighbor) > 0, sum(A[h_neighbor] *X[h_neighbor] * neigh_cond, na.rm = TRUE), NA)
+    }else{
+      h_out = ifelse(length(h_neighbor) > 0, sum(A[h_neighbor] *X[h_neighbor]), NA)}
+    #h_out = sum(A[h_neighbor])
+    h_vector = c(h_vector,h_out)
+  }
+  return(h_vector)
+}
+
+# 2. H with ONE continuous variable (run a regression)
+# the number of treated units for each node's h-order neighborhood
+h_neighborhood_cont <- function(graph, Y, h, X = NULL, x1 = NULL){
+  h_vector = c()
+  vg = V(graph)
+  num_vertices = length(vg)
+  if( h < 0 ) stop('h has to be non-negative')
+  
+  for (j in 1:num_vertices) {
+    if (h == 0){
+      h_neighbor = ego(graph,h,vg[j])[[1]]
+    }else{
+      h_neighbor = setdiff(ego(graph,h,vg[j])[[1]],
+                           ego(graph,h-1,vg[j])[[1]]) 
+    }
+    if (!is.null(X) && !is.null(x1)){
+      #neigh_cond = apply(as.matrix(X[h_neighbor, ]), 1, function(x) ifelse(prod(x == x1), 1, NA))
+      #h_out = ifelse(length(h_neighbor) > 0, mean(Y[h_neighbor] * neigh_cond, na.rm = TRUE), NA)
+      neigh_df <- as.data.frame(cbind(Y[h_neighbor], X[h_neighbor, ]))
+      colnames(neigh_df) <- c('Y', 'X')
+      fits <- lm(Y ~ X, data=neigh_df)
+      h_out <- as.numeric(coef(fits)[1] + coef(fits)[2]*x1)
+    }else{
+      h_out = ifelse(length(h_neighbor) > 0, mean(Y[h_neighbor]), NA)
+    }
+    h_vector = c(h_vector,h_out)
+  }
+  return(h_vector)
+  # 0 if no h-neighborhood
+}

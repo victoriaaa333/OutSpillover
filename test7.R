@@ -1,6 +1,3 @@
-# 03/06/22
-# 1. updated outcome models
-
 source("weight_matrix.R")
 source("ipw_point_estimates.R")
 source("integrand.R")
@@ -14,24 +11,34 @@ aa = c()
 bb = c()
 cc = c()
 
-for (i in 1:10) {
+for (i in 1:100) {
   #############
-  #1. Generate a graph and dataset (treatments, covariates )
+  #1. Generate a graph and dataset (treatments, covariates)
   graph = make_empty_graph(n = 0, directed = FALSE)
   repeat{
     g2 = sample_gnp(100, 0.5, directed = FALSE, loops = FALSE)
     graph = disjoint_union(graph, g2)
     if (clusters(graph)$no == 50){
       break}
-    }
+  }
   
   G = group_vector(graph) 
   
-  denominator_alphas = 0.5; P = 1
-  A = sample(c(0,1), length(clusters(graph)$membership), 
-             replace = TRUE, prob = c(1 - denominator_alphas, denominator_alphas))
+  # Two-stage randomization
+  numerator_alpha = 0.5
+  denominator_alphas = c(0.4,0.6)
+  P = c(0.6,0.4) 
+  P_1 = sample(c(1,2), length(unique(G)), replace = TRUE, prob = P)
+  P_1 = sapply(G, function(x) P_1[x])
+  P_2 = rep(NA, length(P_1))
+  A = rep(NA, length(P_1))
+  for (i in 1:length(P_1)) {
+    P_2[i] = denominator_alphas[P_1[i]]
+    A[i] = sample(c(0,1), 1, prob = c(1-P_2[i],P_2[i]))
+  }
+  
   X = as.matrix(sample(c("M", "F"), length(clusters(graph)$membership), 
-                       replace = TRUE, prob = c(1 - denominator_alphas, denominator_alphas)))
+                       replace = TRUE, prob = c(0.5, 0.5)))
   
   df <- cbind.data.frame(A,G,X)
   df$treated_male_neigh <- h_neighsum(graph, A, 1, X = X, x1 = "M")
@@ -76,15 +83,15 @@ for (i in 1:10) {
   alphas   <- dimnames(w.matrix)[[length(dim(w.matrix))]]
   allocation1 <- alphas[1]
   m_var <- ipw_effect_calc(w.matrix, point_estimates, effect_type ='contrast', 
-                  marginal = FALSE, allocation1, allocation2 = allocation1)[2][[1]]
+                           marginal = FALSE, allocation1, allocation2 = allocation1)[2][[1]]
   m_varF <- ipw_effect_calc(w.matrix, point_estimatesF, effect_type ='contrast', 
-                  marginal = FALSE, allocation1, allocation2 = allocation1)[2][[1]]
+                            marginal = FALSE, allocation1, allocation2 = allocation1)[2][[1]]
   m_varM <- ipw_effect_calc(w.matrix, point_estimatesM, effect_type ='contrast', 
-                  marginal = FALSE, allocation1, allocation2 = allocation1)[2][[1]]
+                            marginal = FALSE, allocation1, allocation2 = allocation1)[2][[1]]
   m_var1 <- ipw_effect_calc(w.matrix, point_estimates1, effect_type ='contrast', 
-                  marginal = FALSE, allocation1, allocation2 = allocation1)[2][[1]]
+                            marginal = FALSE, allocation1, allocation2 = allocation1)[2][[1]]
   m_var2 <- ipw_effect_calc(w.matrix, point_estimates2, effect_type ='contrast', 
-                  marginal = FALSE, allocation1, allocation2 = allocation1)[2][[1]]
+                            marginal = FALSE, allocation1, allocation2 = allocation1)[2][[1]]
   
   bb = rbind(bb,
              c(m_var, m_varF, m_varM, m_var1, m_var2))
@@ -101,48 +108,49 @@ for (i in 1:10) {
   boot_var2 <- sd(apply(bootstrap_avg2, 3, function(x) x[2] - x[1]))
   cc = rbind(cc,
              c(boot_var, boot_varF, boot_varM, boot_var1, boot_var2))
-  # bb <- rbind(bb,
-  #             c(point_estimates$marginal_outcomes$overall,
-  #               point_estimatesF$marginal_outcomes$overall, 
-  #               point_estimatesM$marginal_outcomes$overall, 
-  #               point_estimates1$marginal_outcomes$overall,
-  #               point_estimates2$marginal_outcomes$overall)
-  # )
-  
 }
 
-aa = read.csv("aa.csv")
-bb = read.csv("bb.csv")
-cc = read.csv("cc.csv")
+
+aa = read.csv("aa_2stage.csv")
+bb = read.csv("bb_2stage.csv")
+cc = read.csv("cc_2stage.csv")
 
 colMeans(aa)
-# c = 5; d = 7
-# 9.079188 12.772647  5.336617  8.278655 10.084902
 # theoretical value:
-# 8.5      12         5         8.5      8.5
-colMeans(bb)
-# 6.000006 8.442657 3.522500 8.513539 8.657067
-colMeans(cc)
-# 5.940747 8.408501 3.502335 8.458320 8.649868
+# 8.5      12         5         8.5       8.5
+# 8.448356 11.953974  5.013035  8.537351  8.527261 
+
+colMeans(bb) # analytical variance
+# 7.019550  9.874865  4.126385 13.928077 14.603471 
+
+colMeans(cc) # bootstrapped vairance 
+# 7.001374  9.901045  4.089713 13.688948 14.403271 
+
 apply(aa, 2, sd)
-# 6.401325 9.039709 3.762130 9.182009 9.054657
-
-# colMeans(aa)
-# a = 2; b = 1; c = 5; d = 7
-# c + 0.5d, c + d, c, c+0.5d, c+0.5d
-# 7.299035 ((c+(c+d))/2) 10.32799 (c+d) 6.66149 (c)  7.988405 ((c+(c+d))/2 = 8.5) 
-# b = 0 8.835030 12.544559  8.640701  9.236120
-# 9.261170 12.961077  5.437511  8.422770  9.990158
-
-# TODO
-# run multiple time simulations
-# check estimands and replacement the outcome models H -> mu
-# calculate the average bias (average of point-estimates minus the truth)
-# calculate the empirical SD of causal effect (point-estimates)
-# within each simulation, calculate the bootstrapped variance and the analytical variance, and take average across simulations
-# the average should be close to the empirical SD
+# 7.483637 10.524791  4.366305 13.911961 15.920822 
 
 
-# TODO
-# 1. two-stage randomization 
-# 2. simulate 500 times
+### TODO:
+# 1. try P = c(0.5,0.5) for first-step
+aa0 = read.csv("aa_2stage_(0.5,0.5).csv")
+bb0 = read.csv("bb_2stage_(0.5,0.5).csv")
+cc0 = read.csv("cc_2stage_(0.5,0.5).csv")
+
+colMeans(aa0)
+# 8.506757 12.096392  4.999544  9.245949  7.642329 
+
+colMeans(bb0) # analytical variance
+# 6.662383  9.380415  3.911001 12.705189 13.146152  
+
+colMeans(cc0) # bootstrapped vairance 
+# 6.661834  9.378391  3.861982 12.682929 13.038483 
+
+apply(aa0, 2, sd)
+# 7.456396 10.496605  4.382833 13.519938 14.698275
+
+# 2. regress the individual weighted outcome on the continuous covariates
+# 3. how the estimands will change with the numerator alpha, 
+#       try adding neighbor of neighbor term and have them interact with the other terms
+
+
+

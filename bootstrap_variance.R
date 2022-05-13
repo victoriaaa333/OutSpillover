@@ -38,7 +38,8 @@ GetBootSample <- function(dta) {
 
 #boot_df = GetBootSample(df)$boot_dta
 
-BootVar <- function(dta, numerator_alpha, alpha, boot_variable = "H", x0 = NULL,
+BootVar <- function(dta, numerator_alpha, alpha, boot_variable = "H", 
+                    X_variable = "X", x0 = NULL,
                     B = 100, verbose = FALSE, return_everything = FALSE) {
   
   n_neigh <- max(dta$G)
@@ -72,9 +73,8 @@ BootVar <- function(dta, numerator_alpha, alpha, boot_variable = "H", x0 = NULL,
     allocations = list(c(numerator_alpha, alpha))
     w.matrix = wght_matrix(integrand, allocations, boot_dta$neigh, boot_dta$A, P)
     names(boot_dta)[names(boot_dta) == boot_variable] <- 'boot_variable'
-    
     ygroup_boot <- ipw_point_estimates(boot_dta$boot_variable, boot_dta$neigh, 
-                                         boot_dta$A, w.matrix,boot_dta$X, x0)$outcomes$groups
+                                         boot_dta$A, w.matrix,boot_dta[,X_variable], x0)$outcomes$groups
     if (length(dim(ygroup_boot)) == 2){
         dim(ygroup_boot) <- c(dim(ygroup_boot)[1],dim(ygroup_boot)[2],length(alpha))
     }
