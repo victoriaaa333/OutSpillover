@@ -115,7 +115,7 @@ group_vector <- function(g){
 # We order this dataset by group.
 
 #-----------------------------------------------------------------------------#
-# Calculate h-neighborhood averages
+# Calculate h-neighborhood averages (x1 be categorical)
 
 # The vertices in graph needs to be same order as Y
 # X and x1 is the covariate matrix and the condition for neighbors
@@ -132,7 +132,7 @@ h_neighborhood <- function(graph, Y, h, X = NULL, x1 = NULL){
       h_neighbor = setdiff(ego(graph,h,vg[j])[[1]],
                            ego(graph,h-1,vg[j])[[1]]) 
     }
-    if (!is.null(X)){
+    if (!is.null(X) && !is.null(x1)){
       neigh_cond = apply(as.matrix(X[h_neighbor, ]), 1, function(x) ifelse(prod(x == x1), 1, NA))
       h_out = ifelse(length(h_neighbor) > 0, mean(Y[h_neighbor] * neigh_cond, na.rm = TRUE), NA)
     }else{
@@ -185,6 +185,7 @@ h_counts <- function(graph, h){
   return(h_vector)
 }
 
+# TODO: check this function
 # the number of treated units for each node's h-order neighborhood
 h_neighsum <- function(graph, A, h, X = NULL, x1 = NULL){
   h_vector = c()
@@ -200,7 +201,7 @@ h_neighsum <- function(graph, A, h, X = NULL, x1 = NULL){
                            ego(graph,h-1,vg[j])[[1]]) 
     }
     
-    if (!is.null(X)){
+    if (!is.null(X) & !is.null(x1)){
       neigh_cond = apply(as.matrix(X[h_neighbor, ]), 1, 
                          function(x) ifelse(prod(x == x1), 1, NA)) # check if X is the same as x1
       h_out = ifelse(length(h_neighbor) > 0, sum(A[h_neighbor] * neigh_cond, na.rm = TRUE), NA)
@@ -209,6 +210,26 @@ h_neighsum <- function(graph, A, h, X = NULL, x1 = NULL){
       #h_out = sum(A[h_neighbor])
       h_vector = c(h_vector,h_out)
     }
+  return(h_vector)
+}
+
+# the mean of covariates for each node's h-order neighborhood
+h_neighcov <- function(graph, A, X, h){
+  h_vector = c()
+  vg = V(graph)
+  num_vertices = length(vg)
+  if( h < 0 ) stop('h has to be non-negative')
+  
+  for (j in 1:num_vertices) {
+    if (h == 0){
+      h_neighbor = ego(graph,h,vg[j])[[1]]
+    }else{
+      h_neighbor = setdiff(ego(graph,h,vg[j])[[1]],
+                           ego(graph,h-1,vg[j])[[1]])}
+    
+    h_out = ifelse(length(h_neighbor) > 0, mean(X[h_neighbor,]), NA)
+    h_vector = c(h_vector,h_out)
+  }
   return(h_vector)
 }
 
@@ -247,13 +268,14 @@ get_args <- function(FUN, args_list = NULL, ...){
 
 
 ####### helper function for test10
-# 1. the sum of the covariates in thetreated units for each node's h-order neighborhood
-cov_neighsum <- function(graph, A, h, X = NULL, x1 = NULL){
+# 1. the sum of the covariates in the TREATED units for each node's h-order neighborhood
+# x1 can be set to categorical value
+cov_neighsum <- function(graph, A, h, X, x1 = NULL){
   h_vector = c()
   vg = V(graph)
   num_vertices = length(vg)
   if( h < 0 ) stop('h has to be non-negative')
-  
+  if(is.null(X)) stop('X should not be NULL')
   for (j in 1:num_vertices) {
     if (h == 0){
       h_neighbor = ego(graph,h,vg[j])[[1]]
@@ -262,7 +284,7 @@ cov_neighsum <- function(graph, A, h, X = NULL, x1 = NULL){
                            ego(graph,h-1,vg[j])[[1]]) 
     }
     
-    if (!is.null(X)){
+    if (!is.null(x1)){
       neigh_cond = apply(as.matrix(X[h_neighbor, ]), 1, 
                          function(x) ifelse(prod(x == x1), 1, NA)) # check if X is the same as x1
       h_out = ifelse(length(h_neighbor) > 0, sum(A[h_neighbor] *X[h_neighbor] * neigh_cond, na.rm = TRUE), NA)
@@ -276,6 +298,7 @@ cov_neighsum <- function(graph, A, h, X = NULL, x1 = NULL){
 
 # 2. H with ONE continuous variable (run a regression)
 # the number of treated units for each node's h-order neighborhood
+# unit
 h_neighborhood_cont <- function(graph, Y, h, X = NULL, x1 = NULL){
   h_vector = c()
   vg = V(graph)
@@ -304,3 +327,116 @@ h_neighborhood_cont <- function(graph, Y, h, X = NULL, x1 = NULL){
   return(h_vector)
   # 0 if no h-neighborhood
 }
+
+# 3. new way to calculate H with ONE continuous variable (run a regression of H on avg X)
+# grouped
+h_neighborhood_cont2 <- function(graph, Y, G, h, X, A, a, x1 = NULL){
+  h_vector = c()
+  vg = V(graph)
+  num_vertices = length(vg)
+  neigh_df = data.frame()
+
+  if( h < 0 ) stop('h has to be non-negative')
+
+  for (j in 1:num_vertices) {
+    if (h == 0){
+      h_neighbor = ego(graph,h,vg[j])[[1]]
+    }else{
+      h_neighbor = setdiff(ego(graph,h,vg[j])[[1]],
+                           ego(graph,h-1,vg[j])[[1]])
+    }
+    neigh_df <- rbind(neigh_df,
+                      cbind(mean(Y[h_neighbor]), mean(X[h_neighbor, ]), G[j], A[j]))
+  }
+  colnames(neigh_df) <- c('H', 'neigh_X', 'G', 'A')
+  neigh_df <- as.data.frame(neigh_df[neigh_df$A == a,])
+  fits <- lmList(H ~ neigh_X | G, data = neigh_df)
+  h_out <- as.numeric(coef(fits)[,1] + coef(fits)[,2]*x1)
+  h_vector <- rep(h_out, each = 100) # TODO: hardcode here, change this
+  return(h_vector)
+  # 0 if no h-neighborhood
+}
+
+# 3. the sum of TREATED neighbors for each node's h-order neighborhood
+# x1 can be set to categorical value
+h_neighofneigh_withcov <- function(graph, A, h, X, h_neigh){
+  h_vector = c()
+  vg = V(graph)
+  num_vertices = length(vg)
+  if( h < 0 ) stop('h has to be non-negative')
+  if(is.null(X)) stop('X should not be NULL')
+  
+  h_vector = c()
+  for (j in 1:num_vertices) {
+    if (h == 0){
+      h_neighbor = ego(graph,h,vg[j])[[1]]
+    }else{
+      h_neighbor = setdiff(ego(graph,h,vg[j])[[1]],
+                           ego(graph,h-1,vg[j])[[1]]) 
+    }
+    # for (k in h_neighbor) {
+    #   h_neigh2 = setdiff(ego(graph,h,k)[[1]],
+    #                      ego(graph,h-1,k)[[1]]) 
+    #   neigh2_A = c(neigh2_A, A[h_neigh2])
+    # }
+    h_out = sum(X[h_neighbor,]*(h_neigh[h_neighbor] - A[j]))/length(h_neighbor)
+    h_vector = c(h_vector,h_out)
+  }
+  return(h_vector)
+}
+
+h_neighofneigh <- function(graph, A, h, h_neigh){
+  h_vector = c()
+  vg = V(graph)
+  num_vertices = length(vg)
+  if( h < 0 ) stop('h has to be non-negative')
+  if(is.null(X)) stop('X should not be NULL')
+  
+  h_vector = c()
+  for (j in 1:num_vertices) {
+    if (h == 0){
+      h_neighbor = ego(graph,h,vg[j])[[1]]
+    }else{
+      h_neighbor = setdiff(ego(graph,h,vg[j])[[1]],
+                           ego(graph,h-1,vg[j])[[1]]) 
+    }
+    # for (k in h_neighbor) {
+    #   h_neigh2 = setdiff(ego(graph,h,k)[[1]],
+    #                      ego(graph,h-1,k)[[1]]) 
+    #   neigh2_A = c(neigh2_A, A[h_neigh2])
+    # }
+    h_out = sum(h_neigh[h_neighbor] - A[j])/length(h_neighbor)
+    h_vector = c(h_vector,h_out)
+  }
+  return(h_vector)
+}
+
+# # 4. new way to calculate H with ONE continuous variable (run a regression of H on avg X)
+# # grouped
+# h_neighborhood_cont2 <- function(graph, Y, h, X, G, x1 = NULL){
+#   h_vector = c()
+#   vg = V(graph)
+#   num_vertices = length(vg)
+#   neigh_df = data.frame()
+#   
+#   if( h < 0 ) stop('h has to be non-negative')
+#   
+#   for (j in 1:num_vertices) {
+#     if (h == 0){
+#       h_neighbor = ego(graph,h,vg[j])[[1]]
+#     }else{
+#       h_neighbor = setdiff(ego(graph,h,vg[j])[[1]],
+#                            ego(graph,h-1,vg[j])[[1]])
+#     }
+#     neigh_df <- rbind(neigh_df,
+#                       cbind(mean(Y[h_neighbor]), mean(X[h_neighbor, ]), G[j]))
+#   }
+#   colnames(neigh_df) <- c('H', 'neigh_X', 'G')
+#   #neigh_df <- as.data.frame(neigh_df[neigh_df$A == a,]) 
+#   fits <- lmList(H ~ neigh_X | G, data = neigh_df)
+#   h_out <- as.numeric(coef(fits)[,1] + coef(fits)[,2]*x1)
+#   h_vector <- rep(h_out, each = 100) # TODO: hardcode here, change this
+#   return(h_vector)
+#   # 0 if no h-neighborhood
+# }
+
