@@ -198,3 +198,9 @@ for (i in 1:100){
 
 mean(aa2); mean(cc2)
 # 8.777794; 5.902689
+
+point_estimates  <- ipw_point_estimates_cont(H, G, A, w.matrix)
+alphas   <- dimnames(w.matrix)[[length(dim(w.matrix))]]
+allocation1 <- alphas[1]
+m_var <- ipw_effect_calc(w.matrix, point_estimates, effect_type ='contrast', 
+                         marginal = FALSE, allocation1, allocation2 = allocation1)[2][[1]]
