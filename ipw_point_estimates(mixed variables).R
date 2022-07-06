@@ -120,6 +120,7 @@ ipw_point_estimates_mixed <- function(H, G, A, weights, X = NULL, x0 = NULL,
     for (j in 1:k){
       ind_est_df <- ind_est[ , , j]
       weighted_ind[, , j, ll] <- ind_est_df
+      weights_df <- weights_trt[ , , j]
       if (!is.null(neighinfo)){
         H_list <- neigh_coefs_oncont2(ind_est_df, G, neighinfo, A, a)
         coef_est_H[ , , j] <- as.matrix(H_list[[1]])
@@ -127,7 +128,8 @@ ipw_point_estimates_mixed <- function(H, G, A, weights, X = NULL, x0 = NULL,
         predictors <- names(H_list[[2]])
       }
       if (!is.null(X)){
-        G_list <- group_coefs_oncont2(ind_est_df, G, X, x0, A, a)
+        #G_list <- group_coefs_oncont2(ind_est_df, G, X, x0, A, a)
+        G_list <- group_coefs_oncont2(weights_df, H, G, X, x0, A, a)
         coef_est_G[ , , j] <- as.matrix(G_list[[1]])
         ova_coef_est_G[ , , j] <- as.matrix(G_list[[2]])
         predictors <- names(G_list[[2]])
@@ -318,7 +320,10 @@ neigh_means_oncont2 <- function(cond_coef, x1){
 }
 
 
-group_coefs_oncont2 <- function(ind_est_df, G, X, x0, A, a){
+
+## Group coefficient (weights outside) ##
+
+group_coefs_oncont2 <- function(weights_df, H, G, X, x0, A, a){
   
   X_cat <- as.matrix(X[, X_type == "C"])
   X_num <- apply(as.matrix(X[, X_type == "N"]), 2, as.numeric)
@@ -334,27 +339,27 @@ group_coefs_oncont2 <- function(ind_est_df, G, X, x0, A, a){
     ind_cond <- 1:dim(X_cat)[1]}
   
   if (sum(X_type == "N") > 0){
-    group_df <- as.data.frame(cbind(ind_est_df, G, X_num))
-    colnames(group_df) <- c('ind_est', 'G', num_names)
+    group_df <- as.data.frame(cbind(weights_df, H, G, X_num))
+    colnames(group_df) <- c('weights', 'H', 'G', num_names)
     fits_df <- group_df[intersect(ind_cond,trt_cond), ]
-    fits <- lmList(as.formula(paste("ind_est ~ ", paste(num_names, collapse= "+ "), "| G")),
-                   data = fits_df)
+    fits <- lmList(as.formula(paste("H ~ ", paste(num_names, collapse= "+ "), "| G")),
+                   weights = weights, data = fits_df)
     
     #cond_group_means <- coef(fits)[,1] + as.matrix(coef(fits)[,-1])%*%as.matrix(x0_num)
     cond_coef <- as.matrix(coef(fits))
-    overall_fits <- lm(as.formula(paste("ind_est ~ ", paste(num_names, collapse= "+ "))),
-                       data=group_df)
+    overall_fits <- lm(as.formula(paste("H ~ ", paste(num_names, collapse= "+ "))),
+                       weights = weights, data=group_df)
     overall_coef <- as.vector(coef(overall_fits))
     coef <- list(cond_coef, overall_coef,colnames(coef(fits)))
   }else{
-    group_df <- as.data.frame(cbind(ind_est_df, G))
-    colnames(group_df)[1] <- 'ind_est' 
+    group_df <- as.data.frame(cbind(weights_df, H, G))
+    colnames(group_df)[1] <- 'weights' 
     fits_df <- group_df[intersect(ind_cond,trt_cond), ]
-    fits <- lmList(ind_est ~ 1 | G, data=fits_df) 
+    fits <- lmList(H ~ 1 | G, weights = weights, data=fits_df) 
     
     #cond_group_means <- coef(fits)[,1]
     cond_coef <- coef(fits)[,1]
-    overall_fits <- lm(ind_est ~ 1, data=group_df)
+    overall_fits <- lm(H ~ 1, weights = weights, data=group_df)
     overall_coef <- coef(overall_fits)[[1]]
     coef <- list(cond_coef, overall_coef,colnames(coef(fits)))
   }
@@ -374,3 +379,61 @@ group_means_oncont2 <- function(cond_coef, x0){
   }
   cond_group_means
 }
+
+
+# group_coefs_oncont2 <- function(ind_est_df, G, X, x0, A, a){
+#   
+#   X_cat <- as.matrix(X[, X_type == "C"])
+#   X_num <- apply(as.matrix(X[, X_type == "N"]), 2, as.numeric)
+#   num_names <- colnames(X)[X_type == "N"]
+#   x0_cat <- x0[X_type == "C"]
+#   x0_num <- as.numeric(x0[X_type == "N"])
+#   
+#   trt_cond <- which(A == a)
+#   
+#   if (sum(X_type == "C") > 0){
+#     ind_cond <- which(apply(X_cat, 1, function(x) prod(x == x0_cat)) == 1)
+#   }else{
+#     ind_cond <- 1:dim(X_cat)[1]}
+#   
+#   if (sum(X_type == "N") > 0){
+#     group_df <- as.data.frame(cbind(ind_est_df, G, X_num))
+#     colnames(group_df) <- c('ind_est', 'G', num_names)
+#     fits_df <- group_df[intersect(ind_cond,trt_cond), ]
+#     fits <- lmList(as.formula(paste("ind_est ~ ", paste(num_names, collapse= "+ "), "| G")),
+#                    data = fits_df)
+#     
+#     #cond_group_means <- coef(fits)[,1] + as.matrix(coef(fits)[,-1])%*%as.matrix(x0_num)
+#     cond_coef <- as.matrix(coef(fits))
+#     overall_fits <- lm(as.formula(paste("ind_est ~ ", paste(num_names, collapse= "+ "))),
+#                        data=group_df)
+#     overall_coef <- as.vector(coef(overall_fits))
+#     coef <- list(cond_coef, overall_coef,colnames(coef(fits)))
+#   }else{
+#     group_df <- as.data.frame(cbind(ind_est_df, G))
+#     colnames(group_df)[1] <- 'ind_est' 
+#     fits_df <- group_df[intersect(ind_cond,trt_cond), ]
+#     fits <- lmList(ind_est ~ 1 | G, data=fits_df) 
+#     
+#     #cond_group_means <- coef(fits)[,1]
+#     cond_coef <- coef(fits)[,1]
+#     overall_fits <- lm(ind_est ~ 1, data=group_df)
+#     overall_coef <- coef(overall_fits)[[1]]
+#     coef <- list(cond_coef, overall_coef,colnames(coef(fits)))
+#   }
+#   
+#   coef
+#   
+# }
+
+# group_means_oncont2 <- function(cond_coef, x0){
+#   #x0_cat <- x0[X_type == "C"]
+#   x0_num <- as.numeric(x0[X_type == "N"])
+#   
+#   if (length(x0_num) > 0){
+#     cond_group_means <- cond_coef[,1] + as.matrix(cond_coef[,-1])%*%as.matrix(x0_num)
+#   }else{
+#     cond_group_means <- cond_coef[,1]
+#   }
+#   cond_group_means
+# }

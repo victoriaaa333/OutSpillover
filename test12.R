@@ -8,6 +8,7 @@ source("utils.R")
 source("bootstrap_variance.R")
 source("effects.R")
 source("m_variance.R")
+source("regression_variance.R")
 library(igraph)
 library(lme4)
 
@@ -55,7 +56,7 @@ for (i in 1:100){
   X1 <- apply(G_mat, 1, function(x) rnorm(1,mean = x/51, sd = 1)) # the avg should be 0.5
   X2 <- sample(c("M", "F"), size = length(A), replace = TRUE)
   X3 <- rnorm(length(A),mean = 0.5, sd = 1)
-  X4 <- sample(c("Y", "N"), size = length(A), replace = TRUE)
+  #X4 <- sample(c("Y", "N"), size = length(A), replace = TRUE)
   X <- cbind(X1, X2, X3)
   X_type <- c("N", "C", "N") # indicating whether the covariate is numerical or categorical
   x0 <- as.matrix(c( 0.1, "M", 0.1))
@@ -125,7 +126,7 @@ for (i in 1:100){
   
   c = group_con[,2,] - group_con[,1,]
   
- # d = neigh_conp[,2,] - neigh_conp[,1,]
+  # d = neigh_conp[,2,] - neigh_conp[,1,]
   
   aa1 = rbind(aa1,a)
   bb1 = rbind(bb1,b)
@@ -156,3 +157,85 @@ colMeans(aa1); colMeans(bb1); colMeans(cc1)
 # [1] 12.21216
 # [1] 11.15084
 # [1] 12.35119
+
+
+
+
+
+# model for spillover effect
+
+#############
+#1. Generate a graph and dataset (treatments, covariates)
+graph = make_empty_graph(n = 0, directed = FALSE)
+repeat{
+  g2 = sample_gnp(100, 0.5, directed = FALSE, loops = FALSE)
+  graph = disjoint_union(graph, g2)
+  if (clusters(graph)$no == 50){
+    break}
+}
+
+G = group_vector(graph) 
+
+# Two-stage randomization
+numerator_alpha = 0.5
+denominator_alphas = c(0.4,0.6)
+P = c(0.5,0.5) 
+P_1 = sample(c(1,2), length(unique(G)), replace = TRUE, prob = P)
+P_1 = sapply(G, function(x) P_1[x])
+P_2 = rep(NA, length(P_1))
+A = rep(NA, length(P_1))
+for (i in 1:length(P_1)) {
+  P_2[i] = denominator_alphas[P_1[i]]
+  A[i] = sample(c(0,1), 1, prob = c(1-P_2[i],P_2[i]))
+}
+
+G_mat = as.matrix(G)
+X1 <- apply(G_mat, 1, function(x) rnorm(1,mean = x/51, sd = 1)) # the avg should be 0.5
+X3 <- rnorm(length(A),mean = 0.5, sd = 1)
+X <- cbind(X1, X3)
+X_type <- c("N", "N") # indicating whether the covariate is numerical or categorical
+x0 <- as.matrix(c( 0.1, 0.1))
+X_num <- apply(X[, X_type == "N"], 2, as.numeric)
+X_cat <- as.matrix(X[, X_type == "C"])
+
+df <- cbind.data.frame(A,G,X)
+df$treated_neigh <- h_neighsum(graph, A, 1) 
+df$interaction1 <- X_num[,1] * df$treated_neigh
+df$interaction2 <- X_num[,2] * df$treated_neigh
+
+#############
+# 2. Outcome model
+a = 2; b = 5; c = 7; d = 9
+Y = apply(cbind(df$A, df$treated_neigh, df$interaction1, df$interaction2), 1, #X_num,
+          function(x)  rnorm(1, mean = a*x[1] + b*x[2] + c*x[3] + d*x[4], sd = 1))  
+H = h_neighborhood(graph, Y, 1) 
+df$Y = Y
+df$H = H
+
+#############
+# 3. calculate the point estimates and the variances (bootstrapped and analytical)
+allocations = list(c(0.5,denominator_alphas))
+w.matrix = wght_matrix(integrand, allocations, G, A, P)
+
+point_estimates = ipw_point_estimates_mixed(H, G, A, w.matrix, 
+                                            X = X, x0 = x0, X_type = X_type)
+
+ipw_m_variance(w.matrix, point_estimates, effect_type ='outcome', 
+               marginal = FALSE, allocation1 = allocations[1])
+#184.5276
+
+ipw_regression_variance(w.matrix, point_estimates, effect_type ='outcome', 
+                        marginal = FALSE, allocation1 = allocations[1], 
+                        X = X, x0 = x0, X_type = X_type)
+
+ind_est_df = ipw_point_estimates_mixed(H, G, A, w.matrix)$outcomes$weighted_ind
+group_means_null(ind_est_df[, , a1, t1], G, A, t1)
+aa = as.data.frame(cbind(ind_est_df[, , a1, t1], G))
+aggregate(aa$V1, list(aa$G), FUN = mean)
+mean(aggregate(aa$V1, list(aa$G), FUN = mean)$x)  
+sd(aggregate(aa$V1, list(aa$G), FUN = mean)$x)  
+
+
+ipw_point_estimates_mixed(H, G, A, w.matrix)$outcomes$overall
+
+  
