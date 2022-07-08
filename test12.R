@@ -174,7 +174,8 @@ repeat{
     break}
 }
 
-G = group_vector(graph) 
+#G = group_vector(graph) 
+G = components(graph)$membership
 
 # Two-stage randomization
 numerator_alpha = 0.5
@@ -229,7 +230,7 @@ ipw_regression_variance(w.matrix, point_estimates, effect_type ='outcome',
                         X = X, x0 = x0, X_type = X_type)
 
 ind_est_df = ipw_point_estimates_mixed(H, G, A, w.matrix)$outcomes$weighted_ind
-group_means_null(ind_est_df[, , a1, t1], G, A, t1)
+#group_means_null(ind_est_df[, , a1, t1], G, A, t1)
 aa = as.data.frame(cbind(ind_est_df[, , a1, t1], G))
 aggregate(aa$V1, list(aa$G), FUN = mean)
 mean(aggregate(aa$V1, list(aa$G), FUN = mean)$x)  

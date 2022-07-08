@@ -198,7 +198,7 @@ h_neighsum <- function(graph, A, h, X = NULL, X_type = NULL, x1 = NULL){
     x1_cat <- x1[X_type == "C"]
     ind_cond <- apply(X_cat, 1, function(x) ifelse(prod(x == x1_cat), 1, NA))
   }else{
-    ind_cond <- 1:length(A)}
+    ind_cond <- rep(1,length(A))}
   
   for (j in 1:num_vertices) {
     if (h == 0){

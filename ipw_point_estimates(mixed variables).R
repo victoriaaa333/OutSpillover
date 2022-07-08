@@ -88,7 +88,8 @@ ipw_point_estimates_mixed <- function(H, G, A, weights, X = NULL, x0 = NULL,
   hold_oal_coefG <- array(dim = c((1+len_g)*p, k, l),
                           dimnames = list(predictors, alphas, trt_lvls))
 
-  weighted_ind <- array(dim = c(length(A), 1, k, l), dimnames = list(NULL, NULL, alphas, trt_lvls))
+  #weighted_ind <- array(dim = c(length(A), 1, k, l), dimnames = list(NULL, NULL, alphas, trt_lvls))
+  weights_ind <- array(dim = c(length(A), p, k, l), dimnames = list(NULL, NULL, alphas, trt_lvls))
   
   for(ll in 1:l){    
     a <- trt_lvls[ll]
@@ -107,6 +108,8 @@ ipw_point_estimates_mixed <- function(H, G, A, weights, X = NULL, x0 = NULL,
       }
     }
     
+    weights_ind[, pp, kk, ll] <- weights_trt[ , pp, kk]
+    
     # Compute estimates
     ind_est <- apply(weights_trt, 2:3, function(x) x * H) 
     coef_est_H <- array(dim= c(N, (3+2*len_h)*p, k))
@@ -119,7 +122,7 @@ ipw_point_estimates_mixed <- function(H, G, A, weights, X = NULL, x0 = NULL,
     # Calculate the coefficients for conditional H and group means
     for (j in 1:k){
       ind_est_df <- ind_est[ , , j]
-      weighted_ind[, , j, ll] <- ind_est_df
+      #weighted_ind[, , j, ll] <- ind_est_df
       weights_df <- weights_trt[ , , j]
       if (!is.null(neighinfo)){
         H_list <- neigh_coefs_oncont2(ind_est_df, G, neighinfo, A, a)
@@ -186,8 +189,10 @@ ipw_point_estimates_mixed <- function(H, G, A, weights, X = NULL, x0 = NULL,
                             dimnames = list(predictors, alphas, trt_lvls))
     out$outcomes$overall_coefG <- array(hold_oal_coefG, dim = c((1+len_g)*p, k, l),
                             dimnames = list(predictors, alphas, trt_lvls))
-    out$outcomes$weighted_ind <- array(weighted_ind, dim = c(length(A), 1, k, l), 
-                                  dimnames = list(NULL, NULL, alphas, trt_lvls))
+    # out$outcomes$weighted_ind <- array(weighted_ind, dim = c(length(A), 1, k, l), 
+    #                               dimnames = list(NULL, NULL, alphas, trt_lvls))
+    out$outcomes$weights_ind <- array(weights_ind, dim = c(length(A), p, k, l), 
+                                    dimnames = list(NULL, NULL, alphas, trt_lvls))
     # out$outcomes$grp_coefH <- array(hold_grp_coefH, dim = c(N, k, l), 
     #                                 dimnames = list(grps, alphas, trt_lvls))
     # 
@@ -207,7 +212,7 @@ ipw_point_estimates_mixed <- function(H, G, A, weights, X = NULL, x0 = NULL,
                          grp_coefG = drop(hold_grp_coefG),
                          overall_coefH = drop(hold_oal_coefH),
                          overall_coefG = drop(hold_oal_coefG),
-                         weighted_ind = weighted_ind)
+                         weights_ind = weights_ind)
   }
   
   ## DONE ####
@@ -348,7 +353,7 @@ group_coefs_oncont2 <- function(weights_df, H, G, X, x0, A, a){
     #cond_group_means <- coef(fits)[,1] + as.matrix(coef(fits)[,-1])%*%as.matrix(x0_num)
     cond_coef <- as.matrix(coef(fits))
     overall_fits <- lm(as.formula(paste("H ~ ", paste(num_names, collapse= "+ "))),
-                       weights = weights, data=group_df)
+                       weights = weights, data=fits_df)
     overall_coef <- as.vector(coef(overall_fits))
     coef <- list(cond_coef, overall_coef,colnames(coef(fits)))
   }else{
@@ -359,7 +364,7 @@ group_coefs_oncont2 <- function(weights_df, H, G, X, x0, A, a){
     
     #cond_group_means <- coef(fits)[,1]
     cond_coef <- coef(fits)[,1]
-    overall_fits <- lm(H ~ 1, weights = weights, data=group_df)
+    overall_fits <- lm(H ~ 1, weights = weights, data=fits_df)
     overall_coef <- coef(overall_fits)[[1]]
     coef <- list(cond_coef, overall_coef,colnames(coef(fits)))
   }

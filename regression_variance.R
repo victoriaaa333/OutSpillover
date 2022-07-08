@@ -1,5 +1,6 @@
-point_estimates = ipw_point_estimates_mixed(H, G, A, w.matrix, X = X, x0 = x0, X_type = X_type)
-marginal = FALSE
+#point_estimates = ipw_point_estimates_mixed(H, G, A, w.matrix, X = X, x0 = x0, X_type = X_type)
+#marginal = FALSE
+
 # no implementation of marginal or constrast yet
 ipw_regression_variance <- function(weights, 
                             point_estimates, 
@@ -32,6 +33,7 @@ ipw_regression_variance <- function(weights,
   X_cat <- as.matrix(X[, X_type == "C"])
   x0_cat <- x0[X_type == "C"]
   X_num <- apply(as.matrix(X[, X_type == "N"]), 2, as.numeric)
+  len_n <- sum(X_type == "N")
   
   ## categorical indicator ##
   if (sum(X_type == "C") > 0){
@@ -47,7 +49,7 @@ ipw_regression_variance <- function(weights,
   #grp  <- point_estimates[[fff]]$grp_coefG
   ind_est_df <- point_estimates[[fff]]$weighted_ind
   reg_coef <- point_estimates[[fff]]$overall_coefG
-    
+  weights_ind <- point_estimates[[fff]]$weights_ind  
   if(effect_type == 'contrast'){ 
     #X_reg <- cbind(G, 1, X_num)
     X_reg <- cbind(1, X_num)
@@ -87,8 +89,8 @@ ipw_regression_variance <- function(weights,
     }
   } else {
     # default is control-outcome
-    X_reg <- cbind(G, 1, X_num)
-    trt_ind <- ifelse((A == t1), 1, 0) 
+    X_reg <- cbind(1, X_num)
+    trt_ind <- ifelse((A == t1), 1, NA) 
     if(marginal == TRUE){
       # pe          <- oal[a1] 
       # pe_grp_diff <- (grp[ , a1] - oal[a1])
@@ -96,15 +98,44 @@ ipw_regression_variance <- function(weights,
       #   U_pe_grp    <- Ugrp[ , , a1]
       # }
     } else {
-      grp_coef <- grp[, , a1, t1]
-      #oval_coef_a1 <- reg_coef[, a1, t1]
-      X_fit <- apply(X_reg, 1, function(x) sum(x[-1] * grp_coef[x[1],]))
-      X_fit_trt <- X_fit * trt_ind
-      res_ij <- (ind_est_df[, , a1, t1] - X_fit_trt) 
-      res_data <- as.data.frame(cbind(res_ij, G))
-      res_group <- aggregate(res_data$res_ij, list(res_data$G), FUN=mean, na.rm = TRUE) # mean of residual for each group i
-      pe <- mean(res_group$x)
-      pe_grp_diff <- res_group$x - pe
+      oval_coef_a1 <- reg_coef[, a1, t1]
+      X_fit <- apply(X_reg, 1, function(x) sum(x * oval_coef_a1))
+      res_ij <- (H - X_fit) # \mu - \betaX
+      weight_t1 <- weights_ind[, , a1, t1] * trt_ind
+      psi_mat <- as.matrix(replicate(dim(X_reg)[2], (weight_t1 * res_ij))) * X_reg # extend to the dimension of X_reg
+      psi_data <- as.data.frame(cbind(G, psi_mat))
+      psi_group <- aggregate(psi_data[,-1], list(psi_data$G), FUN = mean, na.rm = TRUE)
+      V_mat <- crossprod(as.matrix(psi_group[,-1]))/N
+      
+      psid_mat <- as.matrix(replicate(dim(X_reg)[2], (weights_ind[, , a1, t1]))) * X_reg
+      psid_data <- as.data.frame(cbind(G, A, psid_mat, X_reg))
+      psid_mat_grp <- array(dim = c(len_n+1, len_n+1, N)) 
+      
+      for (w in 1:N){
+        psid_data_grp <- psid_data[G == w,]
+        psid_mat_grp[, , w] <- t(as.matrix(psid_data_grp[,3:(3+len_n)])) %*% 
+           as.matrix(psid_data_grp[,(4+len_n):(4+2*len_n)])/sum(psid_data_grp$A == t1)
+        # psid_mat_grp[, , w] <- t(as.matrix(psid_data_grp[,3:(3+len_n)])) %*% 
+        #    as.matrix(psid_data_grp[,(4+len_n):(4+2*len_n)])/dim(psid_data_grp)[1]
+        
+      }
+      
+      U_mat <- apply(psid_mat_grp, 1:2, mean)
+      U_mat_inv <- solve(U_mat)
+      var_mat <- U_mat_inv %*% V_mat %*% t(U_mat_inv)/N
+      
+      
+      X_data <- as.data.frame(cbind(G, A, X_reg))
+      X_data_t1 <- X_data[A == t1, ]
+      X_data_group <- aggregate(X_data_t1[,-1:-2], list(X_data_t1$G), 
+                                FUN = mean, na.rm = TRUE)
+      X_mean <- t(colMeans(X_data_group)[-1])
+      #var_fitted <- X_mean %*% var_mat %*% t(X_mean)
+
+      # res_data <- as.data.frame(cbind(res_ij, G))
+      # res_group <- aggregate(res_data$res_ij, list(res_data$G), FUN=mean, na.rm = TRUE) # mean of residual for each group i
+      # pe <- mean(res_group$x)
+      # pe_grp_diff <- res_group$x - pe
       #var <-  mean((res_group$x - mean(res_group$x))^2) 
       # pe          <- ifelse(k == 1, oal[t1], oal[a1, t1]) 
       # pe_grp_diff <- ifelse(k == 1, (grp[ , t1] - oal[t1]),
@@ -116,7 +147,8 @@ ipw_regression_variance <- function(weights,
     }
   }
   
-  ave <- (1/(N^2)) * (sum((pe_grp_diff)^2, na.rm = T)) * rescale.factor^2
+  #ave <- (1/(N^2)) * (sum((pe_grp_diff)^2, na.rm = T)) * rescale.factor^2
+  ave <- X_mean %*% var_mat %*% t(X_mean) * rescale.factor^2
   
   ## Confidence Intervals ##
   qq <- qnorm(conf.level + (1 - conf.level)/2)
