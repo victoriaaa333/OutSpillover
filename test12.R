@@ -9,6 +9,7 @@ source("bootstrap_variance.R")
 source("effects.R")
 source("m_variance.R")
 source("regression_variance.R")
+source("regression_utils.R")
 library(igraph)
 library(lme4)
 
@@ -193,16 +194,26 @@ for (i in 1:length(P_1)) {
 G_mat = as.matrix(G)
 X1 <- apply(G_mat, 1, function(x) rnorm(1,mean = x/51, sd = 1)) # the avg should be 0.5
 X3 <- rnorm(length(A),mean = 0.5, sd = 1)
-X <- cbind(X1, X3)
-X_type <- c("N", "N") # indicating whether the covariate is numerical or categorical
-x0 <- as.matrix(c( 0.1, 0.1))
+# X <- cbind(X1, X3)
+# X_type <- c("N", "N") # indicating whether the covariate is numerical or categorical
+# x0 <- as.matrix(c( 0.1, 0.1))
+
+X2 <- sample(c("M", "F"), size = length(A), replace = TRUE)
+X4 <- sample(c("Y", "N"), size = length(A), replace = TRUE)
+X <- cbind(X2, X4)
+X_type <- c("C", "C")
+x0 <- as.matrix(c("M", "Y"))
+
+
 X_num <- apply(X[, X_type == "N"], 2, as.numeric)
 X_cat <- as.matrix(X[, X_type == "C"])
 
 df <- cbind.data.frame(A,G,X)
 df$treated_neigh <- h_neighsum(graph, A, 1) 
-df$interaction1 <- X_num[,1] * df$treated_neigh
-df$interaction2 <- X_num[,2] * df$treated_neigh
+#df$interaction1 <- X_num[,1] * df$treated_neigh
+#df$interaction2 <- X_num[,2] * df$treated_neigh
+df$interaction1 <- ifelse(X_cat[,1] == "M", 1, 0) * df$treated_neigh
+df$interaction2 <- ifelse(X_cat[,2] == "N", 1, 0) * df$treated_neigh
 
 #############
 # 2. Outcome model
@@ -210,9 +221,10 @@ a = 2; b = 5; c = 7; d = 9
 Y = apply(cbind(df$A, df$treated_neigh, df$interaction1, df$interaction2), 1, #X_num,
           function(x)  rnorm(1, mean = a*x[1] + b*x[2] + c*x[3] + d*x[4], sd = 1))  
 H = h_neighborhood(graph, Y, 1) 
+H_M =  h_neighborhood(graph, Y, 1, X_cat, "M") 
 df$Y = Y
 df$H = H
-
+df$H_M = H_M
 #############
 # 3. calculate the point estimates and the variances (bootstrapped and analytical)
 allocations = list(c(0.5,denominator_alphas))
@@ -229,7 +241,16 @@ ipw_regression_variance(w.matrix, point_estimates, effect_type ='outcome',
                         marginal = FALSE, allocation1 = allocations[1], 
                         X = X, x0 = x0, X_type = X_type)
 
-ind_est_df = ipw_point_estimates_mixed(H, G, A, w.matrix)$outcomes$weighted_ind
+ipw_m_variance(w.matrix, point_estimates, effect_type ='contrast', 
+               marginal = FALSE, allocation1 = allocations[1], allocation2 = allocations[1])
+
+ipw_regression_variance(w.matrix, point_estimates, effect_type ='contrast', 
+                        marginal = FALSE, allocation1 = allocations[1], allocation2 = allocations[1], 
+                        X = X, x0 = x0, X_type = X_type)
+
+
+
+#ind_est_df = ipw_point_estimates_mixed(H, G, A, w.matrix)$outcomes$weighted_ind
 #group_means_null(ind_est_df[, , a1, t1], G, A, t1)
 aa = as.data.frame(cbind(ind_est_df[, , a1, t1], G))
 aggregate(aa$V1, list(aa$G), FUN = mean)
