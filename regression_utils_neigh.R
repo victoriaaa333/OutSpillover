@@ -1,10 +1,10 @@
 # we only need to consider numerical variance in this case, if categorical,
 # we select those out when calculating H.
-point_estimates <- ipw_point_estimates_mixed(H_M, G, A, w.matrix, 
-                                             neighinfo = neighinfo, x1 = x1, X_type = X_type)
-reg_coef <- point_estimates[[fff]]$overall_coefH
+#point_estimates <- ipw_point_estimates_mixed(H_M, G, A, w.matrix, 
+#                                             neighinfo = neighinfo, x1 = x1, X_type = X_type)
+#reg_coef <- point_estimates[[fff]]$overall_coefH
 
-var_para <- function(reg_coef, a1, t1, neighinfo, H, weights_ind, A, G){
+var_para_neigh <- function(reg_coef, a1, t1, neighinfo, H, weights_ind, A, G){
   neigh2_treated = neighinfo$neigh2_treated
   neighX = neighinfo$neighX
   neigh2_treated_neighX = neighinfo$neigh2_treated_neighX
@@ -35,11 +35,11 @@ var_para <- function(reg_coef, a1, t1, neighinfo, H, weights_ind, A, G){
       as.matrix(psid_data_grp[,(5+2*len_h):(6+4*len_h)])/sum(psid_data_grp$A == t1)
    }
   
-  outcomes = list(psi_group, psid_mat_grp)
+  outcomes = list(psi_group, psid_mat_grp, X_fit* trt_ind)
   outcomes
 }
 
-sig_outcome <- function(psi_group, psid_mat_grp){
+sig_outcome_neigh <- function(psi_group, psid_mat_grp){
   N <- length(psi_group[,1])
   V_mat <- crossprod(as.matrix(psi_group[,-1]))/N #rowMeans(apply(as.matrix(psi_group[,-1]), 1, function(x) x %*% t(x)) ) 
   U_mat <- apply(psid_mat_grp, 1:2, mean)
@@ -48,7 +48,7 @@ sig_outcome <- function(psi_group, psid_mat_grp){
   var_mat
 }
 
-sig_effect  <- function(psi_group1, psid_mat_grp1, psi_group2, psid_mat_grp2, len_h){
+sig_effect_neigh  <- function(psi_group1, psid_mat_grp1, psi_group2, psid_mat_grp2, len_h){
   N <- length(psi_group1[,1])
   psi_group <- cbind(psi_group1[,-1], psi_group2[,-1])
   V_mat <- crossprod(as.matrix(psi_group))/N
@@ -59,3 +59,61 @@ sig_effect  <- function(psi_group1, psid_mat_grp1, psi_group2, psid_mat_grp2, le
   var_mat
 } 
 
+
+# 1, last of cond_coef, x1_num, x1_num * last of cond_coef, 
+# where last of cond_coef is the avg of treated neighbors of neighbors for each group with A = a
+var_outcome_neigh <- function(G, A, neighinfo, t1, var_mat, X_mean = NULL){
+  if(is.null(X_mean)){
+    neigh2_treated = neighinfo$neigh2_treated
+    neighX = neighinfo$neighX
+    neigh2_treated_neighX = neighinfo$neigh2_treated_neighX
+    colnames(neighX) <- paste("neighX", colnames(neighX), sep = "_")
+    colnames(neigh2_treated_neighX) <- paste("neigh2_treated_neighX", colnames(neigh2_treated_neighX), sep = "_")
+    
+    X_reg <- cbind(1, neigh2_treated, neighX, neigh2_treated_neighX)
+    X_data <- as.data.frame(cbind(G, A, X_reg))
+    X_data_t1 <- X_data#[A == t1, ]
+    X_data_group <- aggregate(X_data_t1[,-1:-2], list(X_data_t1$G),
+                              FUN = mean, na.rm = TRUE)
+    X_mean <- t(colMeans(X_data_group)[-1])
+  }
+  ave <- X_mean %*% var_mat %*% t(X_mean)
+  ave
+}
+
+var_effect_neigh <- function(G, A, neighinfo, t1, t2, var_mat, 
+                       X_mean_t1 = NULL, X_mean_t2 = NULL){
+  
+  if(is.null(X_mean_t1) | is.null(X_mean_t2)){
+    neigh2_treated = neighinfo$neigh2_treated
+    neighX = neighinfo$neighX
+    neigh2_treated_neighX = neighinfo$neigh2_treated_neighX
+    colnames(neighX) <- paste("neighX", colnames(neighX), sep = "_")
+    colnames(neigh2_treated_neighX) <- paste("neigh2_treated_neighX", colnames(neigh2_treated_neighX), sep = "_")
+    
+    X_reg <- cbind(1, neigh2_treated, neighX, neigh2_treated_neighX)
+    X_data <- as.data.frame(cbind(G, A, X_reg))
+    X_data_group <- aggregate(X_data[,-1:-2], list(X_data$G),
+                              FUN = mean, na.rm = TRUE)
+    X_mean <- t(colMeans(X_data_group)[-1])
+    X_mean_t1 <- X_mean
+    X_mean_t2 <- X_mean
+  }
+  
+  # X_reg <- cbind(1, X_num)
+  # X_data <- as.data.frame(cbind(G, A, X_reg))
+  # 
+  # X_data_t1 <- X_data#[A == t1, ]
+  # X_data_group_t1 <- aggregate(X_data_t1[,-1:-2], list(X_data_t1$G),
+  #                              FUN = mean, na.rm = TRUE)
+  # X_mean_t1 <- colMeans(X_data_group_t1)[-1]
+  # 
+  # X_data_t2 <- X_data#[A == t2, ]
+  # X_data_group_t2 <- aggregate(X_data_t2[,-1:-2], list(X_data_t2$G),
+  #                              FUN = mean, na.rm = TRUE)
+  # X_mean_t2 <- colMeans(X_data_group_t2)[-1]
+  
+  X_mean <- t(c(X_mean_t1, -X_mean_t2))
+  ave <- X_mean %*% var_mat %*% t(X_mean)/length(unique(G))
+  ave
+}

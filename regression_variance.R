@@ -1,19 +1,18 @@
 source("regression_utils.R")
 
 # no implementation of marginal yet
-ipw_regression_variance <- function(weights, 
+# regression variance for conditional within neighbors
+ipw_regression_variance_neigh <- function(H,
+                                    weights, 
                                     point_estimates, 
                                     effect_type, 
                                     marginal,
                                     allocation1, 
                                     allocation2 = NA,
-                                    trt.lvl1 = 0, 
-                                    trt.lvl2 = 1, 
                                     t1 = 0, # default of outcome variance is control group
                                     t2 = 1, # default of contrast is t1(0) - t2(1)
-                                    X = NULL,
-                                    X_type = NULL, 
-                                    x0 = NULL,
+                                    neighinfo = NULL,
+                                    x1_num = NULL,
                                     rescale.factor = 1,
                                     conf.level = 0.95,
                                     print = FALSE){  
@@ -25,30 +24,20 @@ ipw_regression_variance <- function(weights,
   l  <- dim(point_estimates$outcomes$overall)[2]
   a1 <- as.character(allocation1)
   a2 <- as.character(allocation2)
-  t1 <- as.character(trt.lvl1)
-  t2 <- as.character(trt.lvl2)
+  t1 <- as.character(t1)
+  t2 <- as.character(t2)
+  #t1 <- as.character(trt.lvl1)
+  #t2 <- as.character(trt.lvl2)
   
-  ## group coefficients conditional on x0_cat ##
-  X_cat <- as.matrix(X[, X_type == "C"])
-  x0_cat <- x0[X_type == "C"]
-  X_num <- apply(as.matrix(X[, X_type == "N"]), 2, as.numeric)
-  len_n <- sum(X_type == "N")
-  
-  ## categorical indicator ##
-  if (sum(X_type == "C") > 0){
-    cat_ind <- apply(X_cat, 1, function(x) ifelse(prod(x == x0_cat), 1, NA)) 
-  }else{
-    cat_ind <- rep(1,dim(X_cat)[1])} #X = X0 categorical
-  
-  ## group coefficients for marginal / non-marginal (a = 0 / 1 separately) ##
-  #grp_coef <- ipw_point_estimates_mixed(H, G, A, w.matrix, X = X, x0 = x0, X_type = X_type)$outcomes$grp_coefG
+  len_h <- dim(neighinfo$neighX)[2]
   
   fff <- ifelse(marginal == TRUE, 'marginal_outcomes', 'outcomes')
   ind_est_df <- point_estimates[[fff]]$weighted_ind
-  reg_coef <- point_estimates[[fff]]$overall_coefG
+  reg_coef <- point_estimates[[fff]]$overall_coefH
   weights_ind <- point_estimates[[fff]]$weights_ind  
+  
+  
   if(effect_type == 'contrast'){ 
-    X_reg <- cbind(1, X_num)
     trt_ind_t1 <- ifelse((A == t1), 1, NA)
     trt_ind_t2 <- ifelse((A == t2), 1, NA)
     if(marginal == TRUE){
@@ -58,25 +47,32 @@ ipw_regression_variance <- function(weights,
       #   U_pe_grp    <- Ugrp[ , , a1] - Ugrp[ , , a2]
       # }
     } else {
-      X_fit1 = apply(X_reg, 1, function(x) sum(x * reg_coef[,a1,t1])) *trt_ind_t1
-      X_fit2 = apply(X_reg, 1, function(x) sum(x * reg_coef[,a2,t2])) *trt_ind_t2
+      ova_treated2_neigh1 = reg_coef[,a1,t1][2*len_h + 3]
+      X_mean1 = t(c(1, ova_treated2_neigh1, x1_num, x1_num * ova_treated2_neigh1))
+      ova_treated2_neigh2 = reg_coef[,a2,t2][2*len_h + 3]
+      X_mean2 = t(c(1, ova_treated2_neigh2, x1_num, x1_num * ova_treated2_neigh2))
+      
+      psi_group1 = var_para_neigh(reg_coef, a1, t1, neighinfo, H, weights_ind, A, G)[[1]]
+      psid_mat_grp1 =var_para_neigh(reg_coef, a1, t1, neighinfo, H, weights_ind, A, G)[[2]]
+      
+      psi_group2 = var_para_neigh(reg_coef, a2, t2, neighinfo, H, weights_ind, A, G)[[1]]
+      psid_mat_grp2 = var_para_neigh(reg_coef, a2, t2, neighinfo, H, weights_ind, A, G)[[2]]
+      
+      var_mat = sig_effect_neigh(psi_group1, psid_mat_grp1, psi_group2, psid_mat_grp2, len_n)
+      ave <- var_effect_neigh(G, A, neighinfo, t1, t2, var_mat, X_mean1, X_mean2)
+      
+      X_fit1 = var_para_neigh(reg_coef, a1, t1, neighinfo, H, weights_ind, A, G)[[3]]
+      X_fit2 = var_para_neigh(reg_coef, a2, t2, neighinfo, H, weights_ind, A, G)[[3]]
+      #X_fit1 = apply(X_reg, 1, function(x) sum(x * reg_coef[,a1,t1])) *trt_ind_t1
+      #X_fit2 = apply(X_reg, 1, function(x) sum(x * reg_coef[,a2,t2])) *trt_ind_t2
       X_data = as.data.frame(cbind(G, X_fit1, X_fit2))
       X_group = aggregate(X_data[,-1], list(X_data$G), FUN=mean, na.rm = TRUE) # mean of residual for each group i
-      pe <- colMeans(X_group)[2] -  colMeans(X_group)[3]
-      
-      psi_group1 = var_para(reg_coef, a1, t1, X_num, H, weights_ind, A, G)[[1]]
-      psid_mat_grp1 = var_para(reg_coef, a1, t1, X_num, H, weights_ind, A, G)[[2]]
-      
-      psi_group2 = var_para(reg_coef, a2, t2, X_num, H, weights_ind, A, G)[[1]]
-      psid_mat_grp2 = var_para(reg_coef, a2, t2, X_num, H, weights_ind, A, G)[[2]]
-      
-      var_mat = sig_effect(psi_group1, psid_mat_grp1, psi_group2, psid_mat_grp2, len_n)
-      ave <- var_effect(G, A, X_num, t1, t2, var_mat)
+      #pe <- colMeans(X_group)[2] -  colMeans(X_group)[3]
+      pe <- sum(X_mean1 * reg_coef[,a1,t1][1:(2*len_h + 2)]) -
+        sum(X_mean2 * reg_coef[,a2,t2][1:(2*len_h + 2)])
     }
   } else {
     # default is control-outcome
-    X_reg <- cbind(1, X_num)
-    #trt_ind <- ifelse((A == t1), 1, NA) 
     if(marginal == TRUE){
       # pe          <- oal[a1] 
       # pe_grp_diff <- (grp[ , a1] - oal[a1])
@@ -84,15 +80,19 @@ ipw_regression_variance <- function(weights,
       #   U_pe_grp    <- Ugrp[ , , a1]
       # }
     } else {
-      X_fit = apply(X_reg, 1, function(x) sum(x * reg_coef[,a1,t1]))
-      X_data = as.data.frame(cbind(G, X_fit))
-      X_group = aggregate(X_data$X_fit, list(X_data$G), FUN=mean, na.rm = TRUE) # mean of residual for each group i
-      pe <- mean(X_group$x)
+      ova_treated2_neigh = reg_coef[,a1,t1][2*len_h + 3]
+      X_mean = t(c(1, ova_treated2_neigh, x1_num, x1_num * ova_treated2_neigh))
       
-      psi_group = var_para(reg_coef, a1, t1, X_num, H, weights_ind, A, G)[[1]]
-      psid_mat_grp = var_para(reg_coef, a1, t1, X_num, H, weights_ind, A, G)[[2]]
-      var_mat = sig_outcome(psi_group, psid_mat_grp)
-      ave <- var_outcome(G, A, X_num, t1, var_mat)
+      psi_group = var_para_neigh(reg_coef, a1, t1, neighinfo, H, weights_ind, A, G)[[1]]
+      psid_mat_grp = var_para_neigh(reg_coef, a1, t1, neighinfo, H, weights_ind, A, G)[[2]]
+      var_mat = sig_outcome_neigh(psi_group, psid_mat_grp)
+      ave <- var_outcome_neigh(G, A, neighinfo, t1, var_mat, X_mean)
+      
+      X_fit = var_para_neigh(reg_coef, a1, t1, neighinfo, H, weights_ind, A, G)[[3]]
+      X_data = as.data.frame(cbind(G, X_fit))
+      X_group = aggregate(X_data$X_fit, list(X_data$G), FUN=mean, na.rm = TRUE)
+      #pe <- mean(X_group$x)
+      pe <- sum(X_mean * reg_coef[,a1,t1][1:(2*len_h + 2)])
     }
   }
   
@@ -118,6 +118,143 @@ ipw_regression_variance <- function(weights,
                     conf.low = pe - me, conf.high = pe + me)
   return(out)
 }
+
+
+ipw_regression_variance <- function(H,
+                                    weights, 
+                                    point_estimates, 
+                                    effect_type, 
+                                    marginal,
+                                    allocation1, 
+                                    allocation2 = NA,
+                                    #trt.lvl1 = 0, 
+                                    #trt.lvl2 = 1, 
+                                    t1 = 0, # default of outcome variance is control group
+                                    t2 = 1, # default of contrast is t1(0) - t2(1)
+                                    X = NULL,
+                                    X_type = NULL, 
+                                    x0 = NULL,
+                                    rescale.factor = 1,
+                                    conf.level = 0.95,
+                                    print = FALSE){  
+  
+  ## Necessary bits ##
+  N  <- dim(weights)[1] 
+  p  <- dim(weights)[2] 
+  k  <- length(allocations)
+  l  <- dim(point_estimates$outcomes$overall)[2]
+  a1 <- as.character(allocation1)
+  a2 <- as.character(allocation2)
+  t1 <- as.character(t1)
+  t2 <- as.character(t2)
+  #t1 <- as.character(trt.lvl1)
+  #t2 <- as.character(trt.lvl2)
+  
+  ## group coefficients conditional on x0_cat ##
+  X_cat <- as.matrix(X[, X_type == "C"])
+  x0_cat <- x0[X_type == "C"]
+  X_num <- apply(as.matrix(X[, X_type == "N"]), 2, as.numeric)
+  len_n <- sum(X_type == "N")
+  X_mean <- c(1, as.numeric(x0[X_type == "N"]))
+  ## categorical indicator ##
+  if (sum(X_type == "C") > 0){
+    cat_ind <- apply(X_cat, 1, function(x) ifelse(prod(x == x0_cat), 1, NA)) 
+  }else{
+    cat_ind <- rep(1,dim(X_cat)[1])} #X = X0 categorical
+  
+  ## group coefficients for marginal / non-marginal (a = 0 / 1 separately) ##
+  #grp_coef <- ipw_point_estimates_mixed(H, G, A, w.matrix, X = X, x0 = x0, X_type = X_type)$outcomes$grp_coefG
+  
+  fff <- ifelse(marginal == TRUE, 'marginal_outcomes', 'outcomes')
+  ind_est_df <- point_estimates[[fff]]$weighted_ind
+  reg_coef <- point_estimates[[fff]]$overall_coefG
+  weights_ind <- point_estimates[[fff]]$weights_ind  
+  if(effect_type == 'contrast'){ 
+    X_reg <- as.matrix(cbind(rep(1,dim(X)[1]), X_num))
+    trt_ind_t1 <- ifelse((A == t1), 1, NA)
+    trt_ind_t2 <- ifelse((A == t2), 1, NA)
+    if(marginal == TRUE){
+      # pe          <- oal[a1] - oal[a2]
+      # pe_grp_diff <- (grp[ , a1] - oal[a1]) - (grp[, a2] - oal[a2])
+      # if(variance_estimation == 'robust'){
+      #   U_pe_grp    <- Ugrp[ , , a1] - Ugrp[ , , a2]
+      # }
+    } else {
+      #X_fit1 = apply(X_reg, 1, function(x) sum(x * reg_coef[,a1,t1])) *trt_ind_t1 #TODO: all categorical, reg_coef is uncorrect?
+      #X_fit2 = apply(X_reg, 1, function(x) sum(x * reg_coef[,a2,t2])) *trt_ind_t2
+      #X_data = as.data.frame(cbind(G, X_fit1, X_fit2))
+      #X_group = aggregate(X_data[,-1], list(X_data$G), FUN=mean, na.rm = TRUE) # mean of residual for each group i
+      #pe <- colMeans(X_group)[2] -  colMeans(X_group)[3]
+      psi_group1 = var_para(reg_coef, a1, t1, X_reg, H, weights_ind, A, G, cat_ind)[[1]]
+      psid_mat_grp1 = var_para(reg_coef, a1, t1, X_reg, H, weights_ind, A, G, cat_ind)[[2]]
+      
+      psi_group2 = var_para(reg_coef, a2, t2, X_reg, H, weights_ind, A, G, cat_ind)[[1]]
+      psid_mat_grp2 = var_para(reg_coef, a2, t2, X_reg, H, weights_ind, A, G, cat_ind)[[2]]
+      
+      var_mat = sig_effect(psi_group1, psid_mat_grp1, psi_group2, psid_mat_grp2, len_n)
+      #ave <- var_effect(G, A, X_reg, t1, t2, var_mat, cat_ind)
+      ave <- var_effect(G, A, var_mat, X_mean)
+      
+      X_fit1 = var_para(reg_coef, a1, t1, X_reg, H, weights_ind, A, G, cat_ind)[[3]] #TODO: all categorical, reg_coef is uncorrect?
+      X_fit2 = var_para(reg_coef, a2, t2, X_reg, H, weights_ind, A, G, cat_ind)[[3]]
+      X_data = as.data.frame(cbind(G, X_fit1, X_fit2))
+      X_group = aggregate(X_data[,-1], list(X_data$G), FUN=mean, na.rm = TRUE) # mean of residual for each group i
+      #pe <- colMeans(X_group)[2] -  colMeans(X_group)[3]
+      pe <- sum(X_mean * reg_coef[,a1,t1]) - sum(X_mean * reg_coef[,a2,t2])
+    }
+  } else {
+    # default is control-outcome
+    X_reg <- as.matrix(cbind(rep(1,dim(X)[1]), X_num))
+    #trt_ind <- ifelse((A == t1), 1, NA) 
+    if(marginal == TRUE){
+      # pe          <- oal[a1] 
+      # pe_grp_diff <- (grp[ , a1] - oal[a1])
+      # if(variance_estimation == 'robust'){
+      #   U_pe_grp    <- Ugrp[ , , a1]
+      # }
+    } else {
+      # X_fit = apply(X_reg, 1, function(x) sum(x * reg_coef[,a1,t1]))
+      # X_data = as.data.frame(cbind(G, X_fit))
+      # X_group = aggregate(X_data$X_fit, list(X_data$G), FUN=mean, na.rm = TRUE) # mean of residual for each group i
+      # pe <- mean(X_group$x)
+      
+      psi_group = var_para(reg_coef, a1, t1, X_reg, H, weights_ind, A, G, cat_ind)[[1]]
+      psid_mat_grp = var_para(reg_coef, a1, t1, X_reg, H, weights_ind, A, G, cat_ind)[[2]]
+      var_mat = sig_outcome(psi_group, psid_mat_grp)
+      #ave <- var_outcome(G, A, X_reg, t1, var_mat, cat_ind)
+      ave <- var_outcome(G, A, var_mat, X_mean)
+      
+      X_fit = var_para(reg_coef, a1, t1, X_reg, H, weights_ind, A, G, cat_ind)[[3]]
+      X_data = as.data.frame(cbind(G, X_fit))
+      X_group = aggregate(X_data$X_fit, list(X_data$G), FUN=mean, na.rm = TRUE) # mean of residual for each group i
+      #pe <- mean(X_group$x)
+      pe <- sum(X_mean * reg_coef[,a1,t1])
+    }
+  }
+  
+  #ave <- (1/(N^2)) * (sum((pe_grp_diff)^2, na.rm = T)) * rescale.factor^2
+  #ave <- X_mean %*% var_mat %*% t(X_mean) * rescale.factor^2 # variance of outcome
+  
+  ## Confidence Intervals ##
+  qq <- qnorm(conf.level + (1 - conf.level)/2)
+  me <- qq * sqrt(ave)
+  
+  ## Prepare Output ##
+  pe <- pe * rescale.factor
+  
+  if(print == TRUE){
+    toprint <- paste0('Estimate: ', round(pe, 2), ' ',
+                      conf.level*100, '% CI: (', 
+                      round(pe - me, 2), ', ', round(pe + me, 2), ')' )
+    print(toprint)
+  }
+  
+  out <- data.frame(estimate = pe,
+                    std.error = sqrt(ave), 
+                    conf.low = pe - me, conf.high = pe + me)
+  return(out)
+}
+
 
 # ipw_regression_variance <- function(weights, 
 #                             point_estimates, 
