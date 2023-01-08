@@ -79,7 +79,7 @@ df$H = H
 df$H_M = H_M
 
 # 2.1 neighinfo
-neighX = h_neighcov(graph, Y, 1, X, X_type, x1) # average of X for unit j's 1-order neighbor
+neighX = h_neighcov(graph, 1, X, X_type, x1) # average of X for unit j's 1-order neighbor
 h_neigh = h_neighsum(graph, A, 1)
 neigh2_treated = h_neighofneigh(graph, A, 1, h_neigh, 
                                 X, X_type, x1) # average number of treated neighbors l for unit j's 1-order neighbor i
@@ -100,12 +100,14 @@ w.matrix = wght_matrix(integrand, allocations, G, A, P)
 X_non = cbind(X2, X4)
 x0_non = as.matrix(c("M", "Y"))
 X_type_non = c("C","C")
-point_estimates = ipw_point_estimates_mixed(H, G, A, w.matrix, 
+point_estimates = ipw_point_estimates_mixed(H, G, A, w.matrix,
                                             X = X_non, x0 = x0_non,
                                             X_type = X_type_non)
 point_estimates$outcomes$overall
-ipw_m_variance(w.matrix, point_estimates, effect_type ='contrast', 
+ipw_m_variance(w.matrix, point_estimates, effect_type ='contrast',
               marginal = FALSE, allocation1 = allocations[1], allocation2 = allocations[1])
+ipw_m_variance(w.matrix, point_estimates, effect_type ='outcome', 
+              marginal = FALSE, allocation1 = allocations[1])
                
 
 # 3.1. group avg conditional

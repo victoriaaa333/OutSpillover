@@ -1,0 +1,16 @@
+file 0422analysis.dta not found
+r(601);
+
+. run "/var/folders/d2/6l2txbn10257n39f82r_clm40000gn/T//SD11118.000000"
+. run "/var/folders/d2/6l2txbn10257n39f82r_clm40000gn/T//SD11118.000000"
+file data/0422analysis.dta not found
+r(601);
+
+. run "/var/folders/d2/6l2txbn10257n39f82r_clm40000gn/T//SD11118.000000"
+file 0422price.dta not found
+r(601);
+
+. run "/var/folders/d2/6l2txbn10257n39f82r_clm40000gn/T//SD11118.000000"
+. use "/Users/lauraforastiere/Documents/Statistics/Projects/randinf_networks/randomizati
+> on_inference_eckles/cai_data/data/0422survey.dta"
+

@@ -17,6 +17,8 @@
 wght_calc <- function(integrand, 
                       numerator_alpha,
                       denominator_alphas,
+                      parameters = NULL,
+                      randomizations = NULL,
                       ...)
 {  
   ## Necessary pieces ##
@@ -26,8 +28,41 @@ wght_calc <- function(integrand,
   dot.names         <- names(dots)
   A                 <- dots[[match.arg('A', dot.names)]]
   P                 <- dots[[match.arg('P', dot.names)]]
+  X                 <- dots[[match.arg('X', dot.names)]]
   
-  PrA    <- integrand(A, denominator_alphas, P)
+  if (is.null(parameters)){
+    PrA    <- integrand(A, denominator_alphas, P)
+  }else{
+    if(length(randomizations) != length(P)) stop("b should be equal length of P")
+    
+    PrA_eachb = c()
+    
+    # Integrate() arguments ##
+    if(!'lower' %in% dot.names){
+      dots$lower <- -Inf
+    }
+    if(!'upper' %in% dot.names){
+      dots$upper <- Inf
+    }
+    
+    for (r in randomizations) {
+      int.args <- append(get_args(stats::integrate, dots),
+                         list(f = integrand, parameters = parameters, 
+                              randomization = r))
+      args <- append(get_args(integrand, dots), int.args)
+      
+      ## Compute the integral ##
+      # if any of the products within the integrand return Inf, then return NA
+      # else return the result of integration
+      
+      f <- try(do.call(stats::integrate, args = args), silent = TRUE)
+      PrA_eachb <- c(PrA_eachb, if(is(f, 'try-error')) NA else f$value)
+    }
+    
+    PrA <- sum(PrA_eachb*P)
+    
+  }
+  
   ppp    <- prod(numerator_alpha^A * (1-numerator_alpha)^(1-A))
   weight <- ppp/PrA
   weight
@@ -56,11 +91,13 @@ wght_matrix <- function(integrand,
                         allocations, 
                         G, A, P,
                         X = NULL, 
+                        parameters = NULL,
+                        randomizations = NULL,
                         runSilent = TRUE, 
                         ...)
 {
   ## Gather necessary bits ##
-  X_col  <- ifelse(is.null(ncol(X)),0,ncol(X)) 
+  X_col  <- ifelse(is.null(ncol(X)), 0, ncol(X)) 
   gg <- sort(unique(G))
   #denominator_alphas = unique(unlist(lapply(allocations, function (x) x[2])))
   denominator_alphas = unique(unlist(lapply(allocations, function (x) x[-1])))
@@ -68,6 +105,21 @@ wght_matrix <- function(integrand,
   ## Compute weight for each group and allocation level ##
   if(!runSilent) print('Calculating matrix of IP weights...') 
   
+  if(X_col == 0){
+    w.list <- lapply(allocations, function(allocation){
+      w <- by(cbind(X, A), INDICES = G, simplify = FALSE, 
+              FUN = function(x) {
+                wght_calc(
+                  integrand  = integrand, 
+                  numerator_alpha = allocation[1],
+                  denominator_alphas = denominator_alphas, 
+                  P = P,
+                  A = x[, X_col+1], 
+                  X = NULL, #x[,X_col]
+                  parameters = parameters,
+                  randomizations = randomizations)})
+      as.numeric(w)})
+  }else{
   w.list <- lapply(allocations, function(allocation){
     w <- by(cbind(X, A), INDICES = G, simplify = FALSE, 
             FUN = function(x) {
@@ -76,9 +128,12 @@ wght_matrix <- function(integrand,
                         numerator_alpha = allocation[1],
                         denominator_alphas = denominator_alphas, 
                         P = P,
-                        A = x[, X_col+1], X = ifelse(X_col == 0, x[,X_col], x[, 1:X_col]))})
-    as.numeric(w)
-  }) 
+                        A = x[, X_col+1], 
+                        X = x[, 1:X_col],
+                        parameters = parameters,
+                        randomizations = randomizations)})
+    as.numeric(w)})
+    }
   
   ## Reshape list into matrix ##
   w.matrix <- matrix(unlist(w.list, use.names = FALSE), 

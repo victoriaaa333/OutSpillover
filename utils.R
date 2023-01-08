@@ -133,8 +133,13 @@ h_neighborhood <- function(graph, Y, h, X = NULL, x1 = NULL){
                            ego(graph,h-1,vg[j])[[1]]) 
     }
     if (!is.null(X) && !is.null(x1)){
-      neigh_cond = apply(as.matrix(X[h_neighbor, ]), 1, function(x) ifelse(prod(x == x1), 1, NA))
-      h_out = ifelse(length(h_neighbor) > 0, mean(Y[h_neighbor] * neigh_cond, na.rm = TRUE), NA)
+      if(length(h_neighbor) > 0){
+        neigh_cond = apply(as.matrix(X[h_neighbor, ]), 1, 
+                           function(x) ifelse(prod(x == x1), 1, NA))
+        h_out =  mean(Y[h_neighbor] * neigh_cond, na.rm = TRUE)
+      }else{
+        h_out = NA
+      }
     }else{
       h_out = ifelse(length(h_neighbor) > 0, mean(Y[h_neighbor]), NA)
     }
@@ -222,11 +227,12 @@ h_neighsum <- function(graph, A, h, X = NULL, X_type = NULL, x1 = NULL){
 }
 
 # the mean of covariates for each node's h-order neighborhood
-h_neighcov <- function(graph, A, h, X, X_type, x1){
+h_neighcov <- function(graph, h, X, X_type, x1){
   h_vector = c()
   vg = V(graph)
   num_vertices = length(vg)
   if( h < 0 ) stop('h has to be non-negative')
+  if (sum(X_type == "N") == 0) stop('X has to contain at least one numerical varibles')
   
   X_cat <- as.matrix(X[, X_type == "C"])
   X_num <- apply(as.matrix(X[, X_type == "N"]), 2, as.numeric)
@@ -236,7 +242,8 @@ h_neighcov <- function(graph, A, h, X, X_type, x1){
   if (sum(X_type == "C") > 0){
     ind_cond <- apply(X_cat, 1, function(x) ifelse(prod(x == x1_cat), 1, NA))
   }else{
-    ind_cond <- 1:dim(X)[1]}
+    #ind_cond <- 1:dim(X)[1]}
+    ind_cond <- rep(1, dim(X)[1])}
   
   for (j in 1:num_vertices) {
     if (h == 0){
@@ -296,7 +303,7 @@ get_args <- function(FUN, args_list = NULL, ...){
 ####### helper function for test10
 # 1. the sum of the covariates in the TREATED units for each node's h-order neighborhood
 # x1 can be set to categorical value
-cov_neighsum <- function(graph, A, h, X, x1 = NULL){
+cov_neighsum <- function(graph, A, h, X, X_cat = NULL, x1 = NULL){
   h_vector = c()
   vg = V(graph)
   num_vertices = length(vg)
@@ -310,12 +317,13 @@ cov_neighsum <- function(graph, A, h, X, x1 = NULL){
                            ego(graph,h-1,vg[j])[[1]]) 
     }
     
-    if (!is.null(x1)){
-      neigh_cond = apply(as.matrix(X[h_neighbor, ]), 1, 
+    if (!is.null(X_cat)){
+      neigh_cond = apply(as.matrix(X_cat[h_neighbor, ]), 1, 
                          function(x) ifelse(prod(x == x1), 1, NA)) # check if X is the same as x1
-      h_out = ifelse(length(h_neighbor) > 0, sum(A[h_neighbor] *X[h_neighbor] * neigh_cond, na.rm = TRUE), NA)
+      #h_out = ifelse(length(h_neighbor) > 0, sum(A[h_neighbor] *X[h_neighbor] * neigh_cond, na.rm = TRUE), NA)
+      h_out = sum(A[h_neighbor]* neigh_cond *X[h_neighbor], na.rm = TRUE)
     }else{
-      h_out = ifelse(length(h_neighbor) > 0, sum(A[h_neighbor] *X[h_neighbor]), NA)}
+      h_out = sum(A[h_neighbor] *X[h_neighbor])}
     #h_out = sum(A[h_neighbor])
     h_vector = c(h_vector,h_out)
   }
@@ -410,7 +418,7 @@ h_neighofneigh_withcov <- function(graph, A, h, X, X_type, x1, h_neigh){
                            ego(graph,h-1,vg[j])[[1]]) 
     }
     
-    cov_neighbor = h_neighbor * ind_cond[h_neighbor]
+    cov_neighbor = h_neighbor * ind_cond[h_neighbor] # male neighbor index
     cov_neighbor = cov_neighbor[!is.na(cov_neighbor)]
     h_out = t((h_neigh[cov_neighbor] - A[j]))  %*% 
       (X_num[cov_neighbor,])/length(cov_neighbor)

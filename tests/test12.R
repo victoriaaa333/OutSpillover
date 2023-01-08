@@ -24,7 +24,7 @@ bb1 = c()
 cc1 = c()
 dd1 = c()
 
-for (i in 1:100){
+for (i in 1:10){
   
   # model for spillover effect
   
@@ -88,7 +88,7 @@ for (i in 1:100){
   df$H_M = H_M
   #TODO: h_neighsum, h_neighofneigh needed X?
   ## helper functions to running regression on neighX
-  neighX = h_neighcov(graph, Y, 1, X, X_type, x1) # average of X for unit j's 1-order neighbor
+  neighX = h_neighcov(graph, 1, X, X_type, x1) # average of X for unit j's 1-order neighbor
   #h_neigh = h_neighsum(graph, A, 1, X, X_type, x1) # number of treated unit j's 1-order neighbor
   h_neigh = h_neighsum(graph, A, 1)
   neigh2_treated = h_neighofneigh(graph, A, 1, h_neigh, 
@@ -111,7 +111,8 @@ for (i in 1:100){
   #############
   # 3. calculate the point estimates and the variances (bootstrapped and analytical)
   allocations = list(c(0.5,denominator_alphas))
-  w.matrix = wght_matrix(integrand, allocations, G, A, P)
+  #w.matrix = wght_matrix(integrand, allocations, G, A, P)
+  w.matrix = wght_matrix(plain_integrand, allocations, G, A, P)
   
   no_con = ipw_point_estimates_mixed(H, G, A, w.matrix)$outcomes$overall
   neigh_con = ipw_point_estimates_mixed(H_M, G, A, w.matrix, 

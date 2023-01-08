@@ -1,3 +1,6 @@
+# This version features weights where 2nd stage is from actual propensity score
+
+
 #-----------------------------------------------------------------------------#
 # Calculate IPW point estimates
 #  
@@ -12,22 +15,22 @@
 # @export
 #-----------------------------------------------------------------------------#
 
-# At the moment, we assume weights is a matrix, and type I randomization
+# At the moment, we assume weights is a matrix
+# Con_type has to be "mixed", "group", "neigh", if not these 3, then no-con
 
-ipw_point_estimates_mixed <- function(H, G, A, weights, X = NULL, x0 = NULL, 
-                                     neighinfo = NULL, x1= NULL, X_type = NULL){
+ipw_point_estimates_mixed3 <- function(H, G, A, weights, X = NULL, x0 = NULL, 
+                                     neighinfo = NULL, x1= NULL, X_type = NULL,
+                                     Con_type = "No-con"){
   ## Necessary Bits ##
   grps     <- dimnames(weights)[[1]]
   alphas   <- dimnames(weights)[[length(dim(weights))]]
   numerator_alphas <- as.numeric(lapply(alphas, function(l) substr(l[1],3,5)))
   trt_lvls <- sort(unique(A)) # binary if A = 1/0
-  #x1_lvls <- sort(unique(x1))
-  #x0_lvls <- sort(unique(x0))
   
   N <- length(grps)
   k <- length(alphas)
   l <- length(trt_lvls)
-  q <- ifelse(!is.null(x1), dim(x1)[2], #TODO: change this to dimension
+  q <- ifelse(!is.null(x1), dim(x1)[2],
               ifelse(!is.null(x0), dim(x0)[2], 1))
   
   if (!is.null(neighinfo)){
@@ -79,17 +82,22 @@ ipw_point_estimates_mixed <- function(H, G, A, weights, X = NULL, x0 = NULL,
   hold_oal <- array(dim = c(p, k, l, q),
                     dimnames = list(predictors, alphas, trt_lvls, qnames))
   
+  hold_grp_coefM <- array(dim = c(N, (3+2*len_h+len_g)*p, k, l), dimnames = list(grps, predictors, 
+                                                                                 alphas, trt_lvls))
   hold_grp_coefH <- array(dim = c(N, (3+2*len_h)*p, k, l), dimnames = list(grps, predictors, 
                                                                  alphas, trt_lvls))
   hold_grp_coefG <- array(dim = c(N, (1+len_g)*p, k, l), dimnames = list(grps, predictors, 
                                                                  alphas, trt_lvls))
+  
+  hold_oal_coefM <- array(dim = c((3+2*len_h+len_g)*p, k, l),
+                          dimnames = list(predictors, alphas, trt_lvls))
   hold_oal_coefH <- array(dim = c((3+2*len_h)*p, k, l),
                           dimnames = list(predictors, alphas, trt_lvls))
   hold_oal_coefG <- array(dim = c((1+len_g)*p, k, l),
                           dimnames = list(predictors, alphas, trt_lvls))
 
-  #weighted_ind <- array(dim = c(length(A), 1, k, l), dimnames = list(NULL, NULL, alphas, trt_lvls))
-  weights_ind <- array(dim = c(length(A), p, k, l), dimnames = list(NULL, NULL, alphas, trt_lvls))
+  weights_ind <- array(dim = c(length(A), p, k, l), 
+                       dimnames = list(NULL, NULL, alphas, trt_lvls))
   
   for(ll in 1:l){    
     a <- trt_lvls[ll]
@@ -112,8 +120,12 @@ ipw_point_estimates_mixed <- function(H, G, A, weights, X = NULL, x0 = NULL,
     
     # Compute estimates
     ind_est <- apply(weights_trt, 2:3, function(x) x * H) 
+    
+    coef_est_M <- array(dim= c(N, (3+2*len_h+len_g)*p, k))
     coef_est_H <- array(dim= c(N, (3+2*len_h)*p, k))
     coef_est_G <- array(dim= c(N, (1+len_g)*p, k))
+    
+    ova_coef_est_M <- array(dim= c(1, (3+2*len_h+len_g)*p, k))
     ova_coef_est_H <- array(dim= c(1, (3+2*len_h)*p, k))
     ova_coef_est_G <- array(dim= c(1, (1+len_g)*p, k))
     grp_est <- array(dim= c(N, p, k, q))
@@ -122,17 +134,17 @@ ipw_point_estimates_mixed <- function(H, G, A, weights, X = NULL, x0 = NULL,
     # Calculate the coefficients for conditional H and group means
     for (j in 1:k){
       ind_est_df <- ind_est[ , , j]
-      #weighted_ind[, , j, ll] <- ind_est_df
       weights_df <- weights_trt[ , , j]
-      if (!is.null(neighinfo)){
+      if (Con_type == "mixed"){
+        M_list <- mixed_coef(weights_df, H, G, X, X_type, x0, neighinfo, A, a)
+        coef_est_M[ , , j] <- as.matrix(M_list[[1]])
+        ova_coef_est_M[ , , j] <- as.matrix(M_list[[2]])
+      }else if (Con_type == "neigh"){
         H_list <- neigh_coefs_oncont3(weights_df, H, G, neighinfo, A, a)
         coef_est_H[ , , j] <- as.matrix(H_list[[1]])
         ova_coef_est_H[ , , j] <- as.matrix(H_list[[2]])
         #predictors <- names(H_list[[2]])
-        #predictors <- H_list[[3]]
-      }
-      if (!is.null(X)){
-        #G_list <- group_coefs_oncont2(ind_est_df, G, X, x0, A, a)
+      }else if (Con_type == "group"){
         G_list <- group_coefs_oncont2(weights_df, H, G, X, X_type, x0, A, a)
         coef_est_G[ , , j] <- as.matrix(G_list[[1]])
         ova_coef_est_G[ , , j] <- as.matrix(G_list[[2]])
@@ -142,24 +154,19 @@ ipw_point_estimates_mixed <- function(H, G, A, weights, X = NULL, x0 = NULL,
     
     for (j in 1:k) {
       ind_est_df <- ind_est[ , , j]
-      if (!is.null(x1)){
-        #grp_est[, p, j] <- neigh_means_oncont2(coef_est_H[ , , j], x1)
-      #   grp_est[ , p, j, ] <- apply(as.matrix(x1), 2, neigh_means_oncont2, 
-      #                               cond_coef = coef_est_H[ , , j], X_type = X_type) #TODO: 
+      if (Con_type == "mixed"){
+        grp_est[ , p, j, ] <- apply(as.matrix(x1), 2, mixed_means, 
+                                  overall_coef = ova_coef_est_M[ , , j], 
+                                  X_type = X_type, x0 = x0) #TODO: 
+      }else if (Con_type == "neigh"){
         grp_est[ , p, j, ] <- apply(as.matrix(x1), 2, neigh_means_oncont3, 
-                                    overall_coef = ova_coef_est_H[ , , j], X_type = X_type) #TODO: 
-        }else if (!is.null(x0)){
-        #grp_est[, p, j] <- group_means_oncont2(coef_est_G[ , , j], x0)
-        # grp_est[ , p, j, ] <- apply(as.matrix(x0), 2, group_means_oncont2, 
-        #                             cond_coef = coef_est_G[ , , j], X_type = X_type)
-          if (sum(X_type == "N") > 0){
-            grp_est[ , p, j, ] <- apply(as.matrix(x0), 2, group_means_oncont3, 
-                                        overall_coef = ova_coef_est_G[ , , j], X_type = X_type)
-          }else{
-            grp_est[ , p, j, ] <- apply(as.matrix(x0), 2, group_means_oncont2, 
-                                        cond_coef = coef_est_G[ , , j], X_type = X_type)
-            }
-      }else{
+                                    overall_coef = ova_coef_est_H[ , , j],
+                                    X_type = X_type) 
+        }else if (Con_type == "group"){
+        grp_est[ , p, j, ] <- apply(as.matrix(x0), 2, group_means_oncont3, 
+                                    overall_coef = ova_coef_est_G[ , , j], 
+                                    X_type = X_type)
+        }else{
         grp_est[, p, j, ] <- group_means_null(ind_est_df, G, A, a)
       }
     }
@@ -170,8 +177,11 @@ ipw_point_estimates_mixed <- function(H, G, A, weights, X = NULL, x0 = NULL,
     hold_grp[ , , , ll, ] <- grp_est
     hold_oal[ , , ll, ]   <- oal_est
     
+    hold_grp_coefM[ , , , ll] <- coef_est_M
     hold_grp_coefH[ , , , ll] <- coef_est_H
     hold_grp_coefG[ , , , ll] <- coef_est_G
+    
+    hold_oal_coefM[ , , ll] <- ova_coef_est_M
     hold_oal_coefH[ , , ll] <- ova_coef_est_H
     hold_oal_coefG[ , , ll] <- ova_coef_est_G
   }
@@ -190,36 +200,29 @@ ipw_point_estimates_mixed <- function(H, G, A, weights, X = NULL, x0 = NULL,
     # out$outcomes$overall_coefH <- hold_oal_coefH
     # 
     # out$outcomes$overall_coefG <- hold_oal_coefG
-    
+    out$outcomes$grp_coefM <- array(hold_grp_coefM, dim = c(N, (3+2*len_h+len_g)*p, k, l), 
+                                    dimnames = list(grps, predictors, alphas, trt_lvls))
     out$outcomes$grp_coefH <- array(hold_grp_coefH, dim = c(N, (3+2*len_h)*p, k, l), 
                                     dimnames = list(grps, predictors, alphas, trt_lvls))
     out$outcomes$grp_coefG <- array(hold_grp_coefG, dim = c(N, (1+len_g)*p, k, l),
                                     dimnames = list(grps, predictors, alphas, trt_lvls))
+    
+    out$outcomes$overall_coefM <- array(hold_oal_coefM, dim = c((3+2*len_h+len_g)*p, k, l),
+                                        dimnames = list(predictors, alphas, trt_lvls))
     out$outcomes$overall_coefH <- array(hold_oal_coefH, dim = c((3+2*len_h)*p, k, l),
                             dimnames = list(predictors, alphas, trt_lvls))
     out$outcomes$overall_coefG <- array(hold_oal_coefG, dim = c((1+len_g)*p, k, l),
                             dimnames = list(predictors, alphas, trt_lvls))
-    # out$outcomes$weighted_ind <- array(weighted_ind, dim = c(length(A), 1, k, l), 
-    #                               dimnames = list(NULL, NULL, alphas, trt_lvls))
+    
     out$outcomes$weights_ind <- array(weights_ind, dim = c(length(A), p, k, l), 
                                     dimnames = list(NULL, NULL, alphas, trt_lvls))
-    # out$outcomes$grp_coefH <- array(hold_grp_coefH, dim = c(N, k, l), 
-    #                                 dimnames = list(grps, alphas, trt_lvls))
-    # 
-    # out$outcomes$grp_coefG <- array(hold_grp_coefG, dim = c(N, k, l), 
-    #                                 dimnames = list(grps, alphas, trt_lvls))
-    # 
-    # out$outcomes$overall_coefH <- array(hold_oal_coefH, dim = c(k, l),
-    #                                     dimnames = list(alphas, trt_lvls))
-    # 
-    # out$outcomes$overall_coefG <- array(hold_oal_coefG, dim = c(k, l),
-    #                                     dimnames = list(alphas, trt_lvls))
-    
-  }else{
+    }else{
     out$outcomes <- list(groups = drop(hold_grp), 
                          overall = drop(hold_oal),
+                         grp_coefM = drop(hold_grp_coefM),
                          grp_coefH = drop(hold_grp_coefH),
                          grp_coefG = drop(hold_grp_coefG),
+                         overall_coefM = drop(hold_oal_coefM),
                          overall_coefH = drop(hold_oal_coefH),
                          overall_coefG = drop(hold_oal_coefG),
                          weights_ind = weights_ind)
@@ -359,7 +362,6 @@ group_coefs_oncont2 <- function(weights_df, H, G, X, X_type, x0, A, a){
     fits <- lmList(as.formula(paste("H ~ ", paste(num_names, collapse= "+ "), "| G")),
                    weights = w, data = fits_df)
     
-    #cond_group_means <- coef(fits)[,1] + as.matrix(coef(fits)[,-1])%*%as.matrix(x0_num)
     cond_coef <- as.matrix(coef(fits))
     overall_fits <- lm(as.formula(paste("H ~ ", paste(num_names, collapse= "+ "))),
                        weights = w, data=fits_df)
@@ -370,8 +372,6 @@ group_coefs_oncont2 <- function(weights_df, H, G, X, X_type, x0, A, a){
     colnames(group_df)[1] <- 'weights' 
     fits_df <- group_df[intersect(ind_cond,trt_cond), ]
     fits <- lmList(H ~ 1 | G, weights = weights, data=fits_df) 
-    
-    #cond_group_means <- coef(fits)[,1]
     cond_coef <- coef(fits)[,1]
     overall_fits <- lm(H ~ 1, weights = weights, data=fits_df)
     overall_coef <- coef(overall_fits)[[1]]
@@ -395,7 +395,6 @@ group_means_oncont2 <- function(cond_coef, X_type, x0){
 }
 
 group_means_oncont3 <- function(overall_coef, X_type, x0){
-  #x0_cat <- x0[X_type == "C"]
   x0_num <- as.numeric(x0[X_type == "N"])
   cond_coefs <- matrix(rep(overall_coef, N), nrow = N, byrow = TRUE)
   if (length(x0_num) > 0){
@@ -455,7 +454,6 @@ neigh_means_oncont3 <- function(overall_coef, X_type, x1){
   cond_coefs <- matrix(rep(overall_coef, N), nrow = N, byrow = TRUE)
   
   if (lenn > 0){
-    #      apply(cond_coef[,3:(2+lenn)],2, function(x) x* x1_num)
     cond_group_means <- cond_coefs[,1] + cond_coefs[,2] * cond_coefs[,dim(cond_coefs)[2]] +
       as.matrix(cond_coefs[,3:(2+lenn)]) %*% as.matrix(x1_num) + 
       as.matrix(cond_coefs[,(3+lenn):(2+2*lenn)]) %*% as.matrix(x1_num) * cond_coefs[,dim(cond_coefs)[2]]
@@ -466,59 +464,62 @@ neigh_means_oncont3 <- function(overall_coef, X_type, x1){
 }
 
 
-# group_coefs_oncont2 <- function(ind_est_df, G, X, x0, A, a){
-#   
-#   X_cat <- as.matrix(X[, X_type == "C"])
-#   X_num <- apply(as.matrix(X[, X_type == "N"]), 2, as.numeric)
-#   num_names <- colnames(X)[X_type == "N"]
-#   x0_cat <- x0[X_type == "C"]
-#   x0_num <- as.numeric(x0[X_type == "N"])
-#   
-#   trt_cond <- which(A == a)
-#   
-#   if (sum(X_type == "C") > 0){
-#     ind_cond <- which(apply(X_cat, 1, function(x) prod(x == x0_cat)) == 1)
-#   }else{
-#     ind_cond <- 1:dim(X_cat)[1]}
-#   
-#   if (sum(X_type == "N") > 0){
-#     group_df <- as.data.frame(cbind(ind_est_df, G, X_num))
-#     colnames(group_df) <- c('ind_est', 'G', num_names)
-#     fits_df <- group_df[intersect(ind_cond,trt_cond), ]
-#     fits <- lmList(as.formula(paste("ind_est ~ ", paste(num_names, collapse= "+ "), "| G")),
-#                    data = fits_df)
-#     
-#     #cond_group_means <- coef(fits)[,1] + as.matrix(coef(fits)[,-1])%*%as.matrix(x0_num)
-#     cond_coef <- as.matrix(coef(fits))
-#     overall_fits <- lm(as.formula(paste("ind_est ~ ", paste(num_names, collapse= "+ "))),
-#                        data=group_df)
-#     overall_coef <- as.vector(coef(overall_fits))
-#     coef <- list(cond_coef, overall_coef,colnames(coef(fits)))
-#   }else{
-#     group_df <- as.data.frame(cbind(ind_est_df, G))
-#     colnames(group_df)[1] <- 'ind_est' 
-#     fits_df <- group_df[intersect(ind_cond,trt_cond), ]
-#     fits <- lmList(ind_est ~ 1 | G, data=fits_df) 
-#     
-#     #cond_group_means <- coef(fits)[,1]
-#     cond_coef <- coef(fits)[,1]
-#     overall_fits <- lm(ind_est ~ 1, data=group_df)
-#     overall_coef <- coef(overall_fits)[[1]]
-#     coef <- list(cond_coef, overall_coef,colnames(coef(fits)))
-#   }
-#   
-#   coef
-#   
-# }
+# Consider without the modifying terms
+neigh_coefs_oncont4 <- function(weights_df, H, G, neighinfo, A, a){
+  neigh2_treated = neighinfo$neigh2_treated
+  neighX = neighinfo$neighX
+  neigh2_treated_neighX = neighinfo$neigh2_treated_neighX
+  colnames(neighX) <- paste("neighX", colnames(neighX), sep = "_")
+  colnames(neigh2_treated_neighX) <- paste("neigh2_treated_neighX", colnames(neigh2_treated_neighX), sep = "_")
+  
+  if (!is.null(neighinfo) && !is.null(x1)){
+    group_df <- as.data.frame(cbind(weights_df, H, G, A, neigh2_treated, neighX, 
+                                    neigh2_treated_neighX))
+    colnames(group_df)[1] <- 'weights'
+    
+    fits_df <- as.data.frame(group_df[group_df$A == a,])
+    fits <- lmList(as.formula(paste("H ~ ", paste(colnames(fits_df)[-1:-4], 
+                                                  collapse= "+ "), "| G")),
+                   weights = weights, data = fits_df)
+    fits2 <- lmList(neigh2_treated ~ 1 | G, data=fits_df)
+    cond_coef <- cbind(coef(fits), coef(fits2))
+    
+    overall_fits <- lm(as.formula(paste("H ~ ", paste(colnames(fits_df)[-1:-4],
+                                                      collapse= "+ "))),
+                       weights = weights, data = fits_df)
+    overall_fits2 <- lm(neigh2_treated ~ 1, data=fits_df)
+    
+    overall_coef <- c(coef(overall_fits), coef(overall_fits2))
+    coef <- list(cond_coef, overall_coef, colnames(coef(fits)))
+    
+  }else{
+    group_df <- as.data.frame(cbind(weights_df, H, G, A))
+    colnames(group_df) <- c('weights', 'H', 'G',' A')
+    fits_df <- as.data.frame(group_df[group_df$A == a,])
+    
+    fits <- lmList(H ~ 1 | G, weights = weights, data=fits_df)
+    cond_coef <- coef(fits)[,1]
+    
+    overall_fits <- lm(H ~ 1, weights = weights, data=fits_df)
+    overall_coef <- coef(overall_fits)[[1]]
+    
+    coef <- list(cond_coef, overall_coef, colnames(coef(fits)))
+  }
+  coef
+}
 
-# group_means_oncont2 <- function(cond_coef, x0){
-#   #x0_cat <- x0[X_type == "C"]
-#   x0_num <- as.numeric(x0[X_type == "N"])
-#   
-#   if (length(x0_num) > 0){
-#     cond_group_means <- cond_coef[,1] + as.matrix(cond_coef[,-1])%*%as.matrix(x0_num)
-#   }else{
-#     cond_group_means <- cond_coef[,1]
-#   }
-#   cond_group_means
-# }
+neigh_means_oncont4 <- function(overall_coef, X_type, x1){
+  x1_num <- as.numeric(x1[X_type == "N"])
+  lenn <- length(x1_num)
+  cond_coefs <- matrix(rep(overall_coef, N), nrow = N, byrow = TRUE)
+  
+  if (lenn > 0){
+    cond_group_means <- cond_coefs[,1] + cond_coefs[,2] * cond_coefs[,dim(cond_coefs)[2]] +
+      as.matrix(cond_coefs[,3:(2+lenn)]) %*% as.matrix(x1_num) + 
+      as.matrix(cond_coefs[,(3+lenn):(2+2*lenn)]) %*% as.matrix(x1_num) * cond_coefs[,dim(cond_coefs)[2]]
+  }else{
+    cond_group_means <- cond_coefs
+  }
+  cond_group_means
+}
+

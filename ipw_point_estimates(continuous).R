@@ -235,9 +235,13 @@ neigh_means_oncont <- function(ind_est_df, G, neighinfo, x1, A, a){
 
 ### Output the coef
 neigh_coefs_oncont2 <- function(ind_est_df, G, neighinfo, A, a){
-  neighX = neighinfo[,'neighX']
-  neigh2_treated = neighinfo[,'neigh2_treated']
-  neigh2_treated_neighX = neighinfo[,'neigh2_treated_neighX']
+  # neighX = neighinfo[,'neighX']
+  # neigh2_treated = neighinfo[,'neigh2_treated']
+  # neigh2_treated_neighX = neighinfo[,'neigh2_treated_neighX']
+  
+  neighX = neighinfo$neighX
+  neigh2_treated = neighinfo$neigh2_treated
+  neigh2_treated_neighX = neighinfo$neigh2_treated_neighX
   
   if (!is.null(neighinfo)){
     group_df <- as.data.frame(cbind(ind_est_df, G, neighX, 
