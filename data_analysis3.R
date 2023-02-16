@@ -33,7 +33,7 @@ cai$trt <- trt
 prob_A = round(sum(cai$trt)/length(cai$trt), 3) # 0.2187091
 
 # 1.1 necessary bits
-numerator_alpha = 0.1 # hypothetical one
+numerator_alpha = 0.2 # hypothetical one
 denominator_alpha = prob_A # assume only one-stage
 P = 1
 
@@ -109,7 +109,8 @@ ipw_m_variance_groups(w.matrix, ps, effect_type ='contrast',
 # estimate  std.error   conf.low   conf.high
 # -0.1920246 0.05535768 -0.3005237 -0.08352558
 
-# 1. try to derive significant influencer effect
+###### 
+# 2. try to derive significant influencer effect
 ## 1. educ_good
 X_con = cbind(cai$educ_good)
 colnames(X_con) <- c("educ") 
@@ -168,7 +169,8 @@ ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
 # -2.101454 0.1480771 -2.39168 -1.811228
 # -0.1720672 0.0463294 -0.2628712 -0.08126329
 
-# 2. spillover effect for the two variables
+###### 
+# 3. spillover effect for the two variables
 ## 1. educ_good
 X_cat = as.matrix(cbind(cai$educ_good))
 Cat_ind0 <- ifelse(X_cat == 0, 1, NA)
@@ -254,22 +256,9 @@ ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
 # -1.770456 0.1746595 -2.112783  -1.42813
 # -0.1841605 0.05402237 -0.2900424 -0.07827863
 
-# 3. mixed influencer
-## 1. educ_good
-X_con = cbind(cai$educ_good)
-colnames(X_con) <- c("educ") 
-x0_con = as.matrix(c(1))
-X_type_con = as.matrix(c("C"))
-point_estimates1 = ipw_point_estimates_mixed_test5(H_cat0_gender, group_no, trt, w.matrix,
-                                                   X = X_con, x0 = x0_con, 
-                                                   X_type = X_type_con, Con_type = "group")
-point_estimates1$outcomes$overall
-ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
-               marginal = FALSE, allocation1 = allocations[1], 
-               allocation2 = allocations[1])
-# -1.763593 0.1218333 -2.002382 -1.524804
-# -0.04977337 0.002989961 -0.05563359 -0.04391316
-
+###### 
+# 4. mixed influencer
+## 1. educ_good on male and female
 X_con = cbind(cai$educ_good)
 colnames(X_con) <- c("educ") 
 x0_con = as.matrix(c(0))
@@ -284,7 +273,21 @@ ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
 # -1.626557 0.1871573 -1.993378 -1.259735
 # -0.1517001 0.06716609 -0.2833432 -0.02005695
 
-## 2. gender
+X_con = cbind(cai$educ_good)
+colnames(X_con) <- c("educ") 
+x0_con = as.matrix(c(1))
+X_type_con = as.matrix(c("C"))
+point_estimates1 = ipw_point_estimates_mixed_test5(H_cat0_gender, group_no, trt, w.matrix,
+                                                   X = X_con, x0 = x0_con, 
+                                                   X_type = X_type_con, Con_type = "group")
+point_estimates1$outcomes$overall
+ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
+                      marginal = FALSE, allocation1 = allocations[1], 
+                      allocation2 = allocations[1])
+# -1.763593 0.1218333 -2.002382 -1.524804
+# -0.04977337 0.002989961 -0.05563359 -0.04391316
+
+## 2. male on educ_good and not educ_good
 X_con = cbind(cai$male)
 colnames(X_con) <- c("male") 
 x0_con = as.matrix(c(1))
@@ -313,6 +316,7 @@ ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
 # -1.637701 0.1826856 -1.995758 -1.279644
 # -0.1358382 0.0392694 -0.2128049 -0.05887163
 
+## 2. female on educ_good and not educ_good
 X_con = cbind(cai$male)
 colnames(X_con) <- c("male") 
 x0_con = as.matrix(c(0))
@@ -343,3 +347,150 @@ ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
 
 # Female has significant influence over educated groups compared to less-educated groups
 #(CI: [-2.360108,  -1.87162], [-1.637693, -1.091204] not overlapping)
+
+###### 
+# 5. mixed influencers
+# influence of female on female, educ on educ, etc.
+## good educ on good educ
+X_con = cbind(cai$educ_good)
+colnames(X_con) <- c("educ") 
+x0_con = as.matrix(c(1))
+X_type_con = as.matrix(c("C"))
+point_estimates1 = ipw_point_estimates_mixed_test5(H_cat1_educ, group_no, trt, w.matrix,
+                                                   X = X_con, x0 = x0_con, 
+                                                   X_type = X_type_con, Con_type = "group")
+point_estimates1$outcomes$overall
+ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
+                      marginal = FALSE, allocation1 = allocations[1], 
+                      allocation2 = allocations[1])
+# -1.662765 0.2450201 -2.142996 -1.182535
+# -0.232032 0.03700215 -0.3045549 -0.1595091
+
+## good educ on bad educ
+X_con = cbind(cai$educ_good)
+colnames(X_con) <- c("educ") 
+x0_con = as.matrix(c(1))
+X_type_con = as.matrix(c("C"))
+point_estimates1 = ipw_point_estimates_mixed_test5(H_cat0_educ, group_no, trt, w.matrix,
+                                                   X = X_con, x0 = x0_con, 
+                                                   X_type = X_type_con, Con_type = "group")
+point_estimates1$outcomes$overall
+ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
+                      marginal = FALSE, allocation1 = allocations[1], 
+                      allocation2 = allocations[1])
+# -1.962373 0.2659697 -2.483665 -1.441082
+
+## bad educ on bad educ
+X_con = cbind(cai$educ_good)
+colnames(X_con) <- c("educ") 
+x0_con = as.matrix(c(0))
+X_type_con = as.matrix(c("C"))
+point_estimates1 = ipw_point_estimates_mixed_test5(H_cat0_educ, group_no, trt, w.matrix,
+                                                   X = X_con, x0 = x0_con, 
+                                                   X_type = X_type_con, Con_type = "group")
+point_estimates1$outcomes$overall
+ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
+                      marginal = FALSE, allocation1 = allocations[1], 
+                      allocation2 = allocations[1])
+# -1.449213 0.1943234 -1.83008 -1.068346
+# -0.1239241 0.0400971 -0.202513 -0.04533528
+
+## bad educ on good educ
+X_con = cbind(cai$educ_good)
+colnames(X_con) <- c("educ") 
+x0_con = as.matrix(c(0))
+X_type_con = as.matrix(c("C"))
+point_estimates1 = ipw_point_estimates_mixed_test5(H_cat1_educ, group_no, trt, w.matrix,
+                                                   X = X_con, x0 = x0_con, 
+                                                   X_type = X_type_con, Con_type = "group")
+point_estimates1$outcomes$overall
+ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
+                      marginal = FALSE, allocation1 = allocations[1], 
+                      allocation2 = allocations[1])
+# -2.323851 0.2345116 -2.783485 -1.864216
+# Less educated has significant influence over educated groups compared to less-educated groups
+
+## male on male
+X_con = cbind(cai$male)
+colnames(X_con) <- c("male") 
+x0_con = as.matrix(c(1))
+X_type_con = as.matrix(c("C"))
+point_estimates1 = ipw_point_estimates_mixed_test5(H_cat1_gender, group_no, trt, w.matrix,
+                                                   X = X_con, x0 = x0_con, 
+                                                   X_type = X_type_con, Con_type = "group")
+point_estimates1$outcomes$overall
+ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
+                      marginal = FALSE, allocation1 = allocations[1], 
+                      allocation2 = allocations[1])
+# -1.742583 0.1787507 -2.092928 -1.392238
+# -0.1779329 0.05257716 -0.2809823 -0.07488359
+
+## female on female
+X_con = cbind(cai$male)
+colnames(X_con) <- c("male") 
+x0_con = as.matrix(c(0))
+X_type_con = as.matrix(c("C"))
+point_estimates1 = ipw_point_estimates_mixed_test5(H_cat0_gender, group_no, trt, w.matrix,
+                                                   X = X_con, x0 = x0_con, 
+                                                   X_type = X_type_con, Con_type = "group")
+point_estimates1$outcomes$overall
+ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
+                      marginal = FALSE, allocation1 = allocations[1], 
+                      allocation2 = allocations[1])
+# -1.637701 0.1826856 -1.995758 -1.279644
+# -0.004764705         0 -0.004764705 -0.004764705
+
+
+# female on male
+X_con = cbind(cai$male)
+colnames(X_con) <- c("male") 
+x0_con = as.matrix(c(0))
+X_type_con = as.matrix(c("C"))
+point_estimates1 = ipw_point_estimates_mixed_test5(H_cat1_gender, group_no, trt, w.matrix,
+                                                   X = X_con, x0 = x0_con, 
+                                                   X_type = X_type_con, Con_type = "group")
+point_estimates1$outcomes$overall
+ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
+                      marginal = FALSE, allocation1 = allocations[1], 
+                      allocation2 = allocations[1])
+#  -1.997987 0.1404792 -2.273321 -1.722653
+#  -0.175928 0.04694768 -0.2679437 -0.0839122
+
+# male on female
+X_con = cbind(cai$male)
+colnames(X_con) <- c("male") 
+x0_con = as.matrix(c(1))
+X_type_con = as.matrix(c("C"))
+point_estimates1 = ipw_point_estimates_mixed_test5(H_cat0_gender, group_no, trt, w.matrix,
+                                                   X = X_con, x0 = x0_con, 
+                                                   X_type = X_type_con, Con_type = "group")
+point_estimates1$outcomes$overall
+ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
+                      marginal = FALSE, allocation1 = allocations[1], 
+                      allocation2 = allocations[1])
+# -1.820004 0.1517998 -2.117526 -1.522482
+
+###### 
+# 6. 
+# TODO: age
+## 1. educ_good on different ages
+neighX = h_neighcov(graph, 1, X, X_type, x1) 
+neighinfo = list(neighX)
+names(neighinfo) <- c('neighX')
+
+X_con = cbind(cai$educ_good)
+colnames(X_con) <- c("educ") 
+x0_con = as.matrix(c(1))
+X_type_con = as.matrix(c("C"))
+point_estimates1 <- ipw_point_estimates_mixed_test4(H, G, A, w.matrix, 
+                                                     neighinfo = neighinfo, x1 = x1, 
+                                                     X_type = X_type,  Con_type = "neigh")
+
+point_estimates1$outcomes$overall
+ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
+                      marginal = FALSE, allocation1 = allocations[1], 
+                      allocation2 = allocations[1])
+
+
+
+

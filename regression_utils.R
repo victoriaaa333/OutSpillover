@@ -57,7 +57,7 @@ sig_effect  <- function(psi_group1, psid_mat_grp1, psi_group2, psid_mat_grp2, le
   var_mat
 }  
 
-var_outcome <- function(G, A,  var_mat, X_mean = NULL){ # X_reg, t1, cat_ind, 
+var_outcome <- function(G, A,  var_mat, cat_ind, X_mean = NULL){ # X_reg, t1, cat_ind, 
   if(is.null(X_mean)){
     #X_reg <- cbind(1, X_num)
     X_data <- as.data.frame(cbind(G, A, X_reg))

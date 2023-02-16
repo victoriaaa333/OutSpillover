@@ -399,7 +399,7 @@ for (i in 1:1000) {
                               allocation1 = allocations[1], allocation2 = allocations[1],
                               X = X, x0 = x0, X_type = X_type)
   aa4 = rbind(aa4, a)
-  bb4 = rbind(bb4,b)
+  bb4 = rbind(bb4, b)
   
   point_estimates_n2 <- ipw_point_estimates_mixed_test5(H_M, G, A, w.matrix, 
                                                         neighinfo = neighinfo, x1 = x1, 

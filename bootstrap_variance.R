@@ -4,6 +4,8 @@
 #' values of alpha will be returned
 #' 
 
+# TODO: the function used for point estimates might be changed
+
 # GetBootSample <- function(dta) {
 #   
 #   num_clus <- max(dta$neigh)
@@ -73,8 +75,10 @@ BootVar <- function(dta, numerator_alpha, alpha, boot_variable = "H",
     allocations = list(c(numerator_alpha, alpha))
     w.matrix = wght_matrix(integrand, allocations, boot_dta$neigh, boot_dta$A, P)
     names(boot_dta)[names(boot_dta) == boot_variable] <- 'boot_variable'
-    ygroup_boot <- ipw_point_estimates(boot_dta$boot_variable, boot_dta$neigh, 
-                                         boot_dta$A, w.matrix,boot_dta[,X_variable], x0)$outcomes$groups
+    
+    # ygroup_boot <- ipw_point_estimates(boot_dta$boot_variable, boot_dta$neigh, 
+    #                                      boot_dta$A, w.matrix,boot_dta[,X_variable], x0)$outcomes$groups
+    ygroup_boot <- ipw_point_estimates_mixed_test5(boot_dta$boot_variable, )
     if (length(dim(ygroup_boot)) == 2){
         dim(ygroup_boot) <- c(dim(ygroup_boot)[1],dim(ygroup_boot)[2],length(alpha))
     }

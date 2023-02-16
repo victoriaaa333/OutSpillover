@@ -324,7 +324,7 @@ bb4 = c()
 est4g = c()
 est4n = c()
 
-for (i in 1:1000) {
+for (i in 1:100) {
   ##########
   #1. Generate a graph and dataset (treatments, covariates)
   graph = make_empty_graph(n = 0, directed = FALSE)
