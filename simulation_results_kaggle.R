@@ -235,8 +235,8 @@ mean(inf_mixed1$estimate) # -13.09401, bias = -0.09401
 coverage_prob(inf_mixed1, -13) #0.93
 
 # Mixed variables under group conditions, overall
-inf_mixed2 = rbind(readRDS("inf_results/num_of_clusters_200/inf_mixed2(sample size = 200).RDS"),
-                   readRDS("inf_results/num_of_clusters_200/inf_mixed2(sample size = 200)2.RDS"))
+inf_mixed2 = rbind(readRDS("inf_results/mixed/inf_mixed2(new var_outcome).RDS"),
+                   readRDS("inf_results/mixed/inf_mixed2(new var_outcome)1.RDS"))
 sd(inf_mixed2$estimate) # 1.792545
 mean(inf_mixed2$std.error) # 1.311842
 mean(inf_mixed2$estimate) # -7.449184, bias = 0.050816

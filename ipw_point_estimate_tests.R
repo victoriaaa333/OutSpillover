@@ -751,11 +751,11 @@ ipw_point_estimates_mixed_test4 <- function(H, G, A, weights, X = NULL, x0 = NUL
   hold_oal <- array(dim = c(p, k, l, q),
                     dimnames = list(predictors, alphas, trt_lvls, qnames))
   
-  hold_grp_coefM <- array(dim = c(N, (1+len_h+len_g)*p, k, l), dimnames = list(grps, predictors, 
+  hold_grp_coefM <- array(dim = c(N, (1+len_g+len_h+len_g*len_h)*p, k, l), dimnames = list(grps, predictors, 
                                                                                alphas, trt_lvls))
-  hold_grp_coefH <- array(dim = c(N, (1+len_h)*p, k, l), dimnames = list(grps, predictors, 
+  hold_grp_coefH <- array(dim = c(N, (1+len_g+len_h+len_g*len_h)*p, k, l), dimnames = list(grps, predictors, 
                                                                          alphas, trt_lvls))
-  hold_grp_coefG <- array(dim = c(N, (1+len_g)*p, k, l), dimnames = list(grps, predictors, 
+  hold_grp_coefG <- array(dim = c(N, (1+len_g+len_h+len_g*len_h)*p, k, l), dimnames = list(grps, predictors, 
                                                                          alphas, trt_lvls))
   hold_oal_coefM <- array(dim = c((1+len_h+len_g)*p, k, l),
                           dimnames = list(predictors, alphas, trt_lvls))
@@ -788,7 +788,7 @@ ipw_point_estimates_mixed_test4 <- function(H, G, A, weights, X = NULL, x0 = NUL
     
     # Compute estimates
     ind_est <- apply(weights_trt, 2:3, function(x) x * H) 
-    coef_est_M <- array(dim= c(N, (1+len_h+len_g)*p, k))
+    coef_est_M <- array(dim= c(N, (1+len_g+len_h+len_g*len_h)*p, k))
     coef_est_H <- array(dim= c(N, (1+len_h)*p, k))
     coef_est_G <- array(dim= c(N, (1+len_g)*p, k))
     
