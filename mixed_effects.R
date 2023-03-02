@@ -1,5 +1,5 @@
 column_multiply <- function(mat1, mat2){
-  if(prod(dim(mat1) == dim(mat2)) == 0) stop("dimension are not the same")
+  #if(prod(dim(mat1) == dim(mat2)) == 0) stop("dimension are not the same")
   mat = c()
   mat_colnames = c()
   for (j in 1:dim(mat1)[2]){
@@ -17,7 +17,7 @@ mixed_coef <- function(weights_df, H, G, X, X_type, x0, neighinfo, A, a){
   #### information needed for conditional H ####
   trt_cond <- which(A == a)
   neighX = neighinfo$neighX
-  colnames(neighX) <- paste("neighX", colnames(neighX), sep = "_")
+  colnames(neighX) <- paste("neighX", colnames(neighX), sep = "")
   
   #### select out categorical values for conditional group avg ####
   if (sum(X_type == "C") > 0){
@@ -31,6 +31,7 @@ mixed_coef <- function(weights_df, H, G, X, X_type, x0, neighinfo, A, a){
   # if there's numerical in regression for group avg
   if (sum(X_type == "N") > 0){
     X_num <- apply(as.matrix(X[, X_type == "N"]), 2, as.numeric)
+    colnames(X_num) <- colnames(X)[X_type == "N"]
     X_inter <- column_multiply(X_num, neighX)
     X_neighX <- X_inter[[1]]
     group_df <- as.data.frame(cbind(weights_df, H, G, X_num, neighX, X_neighX))
@@ -42,8 +43,10 @@ mixed_coef <- function(weights_df, H, G, X, X_type, x0, neighinfo, A, a){
   
   #### fit the regression ####  
     fits_df <- group_df[intersect(ind_cond, trt_cond), ]
-    fits <- lmList(as.formula(paste("H ~ ", paste(colnames(fits_df)[-1:-3], collapse= "+ "), "| G")),
-                   weights = w, data = fits_df)
+    # fits <- lmList(as.formula(paste("H ~ ", paste(colnames(fits_df)[-1:-3], collapse= "+ "), "| G")),
+    #                weights = w, data = fits_df)
+    fits <- lmList(as.formula(paste("w*H ~ ", paste(colnames(fits_df)[-1:-3], collapse= "+ "), "| G")),
+                   data = fits_df)
     cond_coef <- as.matrix(coef(fits))
     overall_fits <- lm(as.formula(paste("H ~ ", paste(colnames(fits_df)[-1:-3], collapse= "+ "))),
                        weights = w, data = fits_df)
@@ -73,7 +76,7 @@ mixed_coef <- function(weights_df, H, G, X, X_type, x0, neighinfo, A, a){
 }
 
 
-mixed_means <- function(overall_coef, X_type, x0, x1){
+mixed_means_overall <- function(overall_coef, X_type, x0, x1, N){
   x0_num <- as.numeric(x0[X_type == "N"])
   x1_num <- as.numeric(x1[X_type == "N"])
   lenn <- length(x1_num)
@@ -83,7 +86,23 @@ mixed_means <- function(overall_coef, X_type, x0, x1){
   if (leng > 0){
     cond_group_means <- cond_coefs[,1] + cond_coefs[,2:(1+leng)] %*% as.matrix(x0_num) +
       as.matrix(cond_coefs[,(2+leng):(1+leng+lenn)]) %*% as.matrix(x1_num) + 
-      as.matrix(cond_coefs[,(2+leng+lenn):(3+leng+2*lenn)]) %*% c(outer(x1_num, x0_num))
+      as.matrix(cond_coefs[,(2+leng+lenn):(1+leng+lenn+leng*lenn)]) %*% c(outer(x1_num, x0_num))
+  }else{
+    cond_group_means <- cond_coefs[,1] + cond_coefs[,2:(1+lenn)] %*% as.matrix(x1_num)
+  }
+  cond_group_means
+}
+
+mixed_means_group <- function(cond_coefs, X_type, x0, x1){
+  x0_num <- as.numeric(x0[X_type == "N"])
+  x1_num <- as.numeric(x1[X_type == "N"])
+  lenn <- length(x1_num)
+  leng <- length(x0_num)
+  
+  if (leng > 0){
+    cond_group_means <- cond_coefs[,1] + cond_coefs[,2:(1+leng)] %*% as.matrix(x0_num) +
+      as.matrix(cond_coefs[,(2+leng):(1+leng+lenn)]) %*% as.matrix(x1_num) + 
+      as.matrix(cond_coefs[,(2+leng+lenn):(1+leng+lenn+leng*lenn)]) %*% c(outer(x1_num, x0_num))
   }else{
     cond_group_means <- cond_coefs[,1] + cond_coefs[,2:(1+lenn)] %*% as.matrix(x1_num)
   }

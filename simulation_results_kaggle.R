@@ -18,11 +18,11 @@ coverage_prob0 <- function(dataset, true_effect, std){
 #### Spillover Model Simulations ####
 ## No-condition ##
 spillover_plain = readRDS("spillover_results/spillover_plain.RDS")
-sd(spillover_plain$estimate) # 4.459234
-mean(spillover_plain$std.error) # 4.218611
-mean(spillover_plain$estimate) # -12.70476, bias = 0.29524
-coverage_prob(spillover_plain, -13) #0.867
-coverage_prob0(spillover_plain, -13, sd(spillover_plain$estimate)) # 0.945
+sd(spillover_plain$estimate) # 2.022351
+mean(spillover_plain$std.error) # 1.972029
+mean(spillover_plain$estimate) # -13.15786, bias = 0.15786
+coverage_prob(spillover_plain, -13) #0.934
+#coverage_prob0(spillover_plain, -13, sd(spillover_plain$estimate)) # 0.945
 
 ## Binary varibles ##
 spillover_binary1 =  readRDS("spillover_results/spillover_binary1.RDS")
@@ -149,9 +149,42 @@ coverage_prob(inf_mixed2, -7.5) #0.844
 # 2. increase the number of clusters to 200.
 # 3. write down the table
 
-#### Increase number of clusters to 200 ####
+### Increase number of clusters to 200 ###
+#### Spillover Model Simulations ####
+## No-condition ##
+spillover_plain = rbind(readRDS("spillover_results/num_of_clusters_200/spillover_plain.RDS"),
+                        readRDS("spillover_results/num_of_clusters_200/spillover_plain(1).RDS"))
+sd(spillover_plain$estimate) # 2.168015
+mean(spillover_plain$std.error) # 2.01858
+mean(spillover_plain$estimate) # -13.21375, bias = 0.21375
+coverage_prob(spillover_plain, -13) #0.9266667
 
-### Spillover Model Simulations ###
+## Binary varibles ##
+spillover_binary1 =  rbind(readRDS("spillover_results/num_of_clusters_200/spillover_binary1.RDS"),
+                           readRDS("spillover_results/num_of_clusters_200/spillover_binary1(1).RDS"))
+sd(spillover_binary1$estimate) # 2.778729
+mean(spillover_binary1$std.error) # 2.702652
+mean(spillover_binary1$estimate) # -21.16166, bias = 0.16166
+coverage_prob(spillover_binary1, -21) #0.94
+
+# Binary variable under group conditions, overall
+# spillover_binary2 =  rbind(readRDS("spillover_results/num_of_clusters_200/spillover_binary2.RDS"),
+#                            readRDS("spillover_results/num_of_clusters_200/spillover_binary2(1).RDS"))
+# sd(spillover_binary2$estimate) # 3.371333
+# mean(spillover_binary2$std.error) # 4.587584
+# mean(spillover_binary2$estimate) # -13.3068, bias = -0.3068
+# coverage_prob(spillover_binary2, -13) #0.951
+
+# Binary variable under group conditions, w/i groups
+spillover_binary3 =  rbind(readRDS("spillover_results/num_of_clusters_200/spillover_binary3.RDS"),
+                           readRDS("spillover_results/num_of_clusters_200/spillover_binary3(1).RDS"))
+sd(spillover_binary3$estimate) # 2.501396
+mean(spillover_binary3$std.error) # 2.753614
+mean(spillover_binary3$estimate) # -13.18557, bias = 0.0106
+coverage_prob(spillover_binary3, -13) #0.924
+# We should use this version when no regression involve?
+coverage_prob0(spillover_binary3, -13, sd(spillover_binary3$estimate)) #0.95
+
 ## Continuous variables ##
 spillover_cont1 = readRDS("spillover_results/num_of_clusters_200/spillover_cont1.RDS")
 sd(spillover_cont1$estimate) # 2.677921
@@ -167,7 +200,7 @@ mean(spillover_cont2$estimate) # -13.11965, bias = -0.211965
 coverage_prob(spillover_cont2, -13) #0.938
 # No group conditions because it's a regression estimator
 
-## Mixed variables ##
+## Mixed variables (2 num covariates in interaction) ##
 spillover_mixed1 = readRDS("spillover_results/num_of_clusters_200/spillover_mixed1.RDS")
 sd(spillover_mixed1$estimate) # 1.861457
 mean(spillover_mixed1$std.error) # 1.893961
@@ -181,7 +214,26 @@ mean(spillover_mixed2$std.error) # 1.708772
 mean(spillover_mixed2$estimate) # -13.12521, bias = -0.12521
 coverage_prob(spillover_mixed2, -13) #0.9
 
-### Influencer Model Simulations ###
+## Mixed variables (1 num and 1 cat covariate in interaction) ##
+spillover_mixed1 = rbind(readRDS("spillover_results/1cat1num/spillover_mixed1.RDS"),
+                         readRDS("spillover_results/1cat1num/spillover_mixed1(1).RDS"))
+sd(spillover_mixed1$estimate) # 1.913753
+mean(spillover_mixed1$std.error) # 2.037661
+mean(spillover_mixed1$estimate) # -14.85719, bias = -
+coverage_prob(spillover_mixed1, -14.7) #0.955
+
+# Mixed variables under group conditions, overall
+spillover_mixed2 = rbind(readRDS("spillover_results/1cat1num/spillover_mixed2.RDS"),
+                         readRDS("spillover_results/1cat1num/spillover_mixed2(1).RDS"),
+                         readRDS("spillover_results/1cat1num/spillover_mixed2(2).RDS"))
+sd(spillover_mixed2$estimate) # 1.562126
+mean(spillover_mixed2$std.error) # 1.359359
+mean(spillover_mixed2$estimate) # -13.04766, bias = -
+coverage_prob(spillover_mixed2, -13) #0.9188889
+
+#### Influencer Model Simulations ####
+# All the cases below are from cluster 200, sample size 100, nsim = 200
+inf_table = c()
 ## No-condition ##
 inf_plain = readRDS("inf_results/num_of_clusters_200/inf_plain.RDS")
 sd(inf_plain$estimate) # 1.655949
@@ -190,45 +242,51 @@ mean(inf_plain$estimate) # -13.13284, bias = -0.13284
 coverage_prob(inf_plain, -13) #0.946
 
 ## Binary varibles ##
-inf_binary1 =  readRDS("inf_results/num_of_clusters_200/inf_binary1.RDS")
-sd(inf_binary1$estimate) # 1.649183
-mean(inf_binary1$std.error) # 1.701642
-mean(inf_binary1$estimate) # -13.0517, bias = -0.0517
-coverage_prob(inf_binary1, -13) #0.955
+inf_binary1 =  rbind(readRDS("inf_results/num_of_clusters_200/inf_binary1.RDS"),
+                     readRDS("inf_results/num_of_clusters_200/inf_binary1(1).RDS"))
+sd(inf_binary1$estimate) # 1.701592
+mean(inf_binary1$std.error) # 1.712654
+mean(inf_binary1$estimate) # -13.16731, bias = 0.16731
+coverage_prob(inf_binary1, -13) #0.948
 
 # Binary variable under group conditions, overall
-inf_binary2 =  readRDS("inf_results/num_of_clusters_200/inf_binary2.RDS")
-sd(inf_binary2$estimate) # 1.875211
-mean(inf_binary2$std.error) # 3.209203
-mean(inf_binary2$estimate) # -21.0948, bias = -0.0948
-coverage_prob(inf_binary2, -21) #0.974
+# inf_binary2 =  rbind(readRDS("inf_results/num_of_clusters_200/inf_binary2.RDS"),
+#                      readRDS("inf_results/num_of_clusters_200/inf_binary2(1).RDS"))
+# sd(inf_binary2$estimate) # 1.768858
+# mean(inf_binary2$std.error) # 3.439254
+# mean(inf_binary2$estimate) # -20.9142, bias = -0.0948
+# coverage_prob(inf_binary2, -21) #0.982
 
 # Binary variable under group conditions, w/i groups
-inf_binary3 =  readRDS("inf_results/num_of_clusters_200/inf_binary3.RDS")
-sd(inf_binary3$estimate) # 2.434932
-mean(inf_binary3$std.error) # 3.196304
-mean(inf_binary3$estimate) # -21.06475, bias = -0.06475
-coverage_prob(inf_binary3, -21) #0.96
+inf_binary3 =  rbind(readRDS("inf_results/num_of_clusters_200/inf_binary3.RDS"),
+                     readRDS("inf_results/num_of_clusters_200/inf_binary3(1).RDS"))
+sd(inf_binary3$estimate) # 2.54659
+mean(inf_binary3$std.error) # 3.427047
+mean(inf_binary3$estimate) # -21.19562, bias = -0.06475
+coverage_prob(inf_binary3, -21) #0.946
 
 ## Continuous variables ##
-inf_cont1 = readRDS("inf_results/num_of_clusters_200/inf_cont1.RDS")
-sd(inf_cont1$estimate) # 4.062581
-mean(inf_cont1$std.error) # 3.745038
-mean(inf_cont1$estimate) # -12.76634, bias = 0.23366
-coverage_prob(inf_cont1, -13) #0.91
+inf_cont1 = rbind(readRDS("inf_results/num_of_clusters_200/inf_cont1.RDS"),
+                  readRDS("inf_results/num_of_clusters_200/inf_cont1(1).RDS"))
+sd(inf_cont1$estimate) # 4.061942
+mean(inf_cont1$std.error) # 3.790154
+mean(inf_cont1$estimate) # -13.27164, bias = 
+coverage_prob(inf_cont1, -13) #0.922
 
 # Continuous variables under group conditions, overall
-inf_cont2 = readRDS("inf_results/num_of_clusters_200/inf_cont2.RDS")
-sd(inf_cont2$estimate) # 1.08374
-mean(inf_cont2$std.error) # 1.132037
-mean(inf_cont2$estimate) # -7.55599, bias = -0.05599
-coverage_prob(inf_cont2, -7.5) #0.96
-
+inf_cont2 = rbind(readRDS("inf_results/num_of_clusters_200/inf_cont2.RDS"),
+                  readRDS("inf_results/num_of_clusters_200/inf_cont2(1).RDS"))
+sd(inf_cont2$estimate) # 1.119922
+mean(inf_cont2$std.error) # 1.140617
+mean(inf_cont2$estimate) # -7.59409, bias = -
+coverage_prob(inf_cont2, -7.5) #0.954
 # No group conditions because it's a regression estimator
 
+
+
 #### Mixed variables (noc = 200, sample size = 200) ####
-inf_mixed1 = rbind(readRDS("inf_results/num_of_clusters_200/inf_mixed1(sample size = 200).RDS"),
-                   readRDS("inf_results/num_of_clusters_200/inf_mixed1(sample size = 200)2.RDS"))
+inf_mixed1 = rbind(readRDS("inf_results/num_of_clusters_200/inf_mixed1.RDS"),
+                   readRDS("inf_results/num_of_clusters_200/inf_mixed1(2).RDS"))
 sd(inf_mixed1$estimate) # 2.978993
 mean(inf_mixed1$std.error) # 2.819687
 mean(inf_mixed1$estimate) # -13.09401, bias = -0.09401
@@ -243,3 +301,83 @@ mean(inf_mixed2$estimate) # -7.449184, bias = 0.050816
 coverage_prob(inf_mixed2, -7.5) #.8475
 
 
+
+#### Mixed variables (1 cat 1 num) ####
+inf_mixed1 = rbind(readRDS("inf_results/1cat1num/inf_mixed1.RDS"),
+                   readRDS("inf_results/1cat1num/inf_mixed1(1).RDS"))
+sd(inf_mixed1$estimate) # 2.220289
+mean(inf_mixed1$std.error) # 2.107123
+mean(inf_mixed1$estimate) # -13.30752, bias = 
+coverage_prob(inf_mixed1, -13) #.95
+
+inf_mixed2 = rbind(readRDS("inf_results/1cat1num/inf_mixed2.RDS"),
+                   readRDS("inf_results/1cat1num/inf_mixed2(1).RDS"))
+sd(inf_mixed2$estimate) # 1.517736
+mean(inf_mixed2$std.error) # 1.368048
+mean(inf_mixed2$estimate) # -14.8041, bias = 
+# point estimate = 5 + 7*0.1 + 9 = 14.7
+coverage_prob(inf_mixed2, -14.7) #.922
+
+spillover_mixed1 = rbind(readRDS("spillover_results/1cat1num/spillover_mixed1.RDS"),
+                   readRDS("spillover_results/1cat1num/spillover_mixed1(1).RDS"))
+sd(spillover_mixed1$estimate) # 2.141295
+mean(spillover_mixed1$std.error) # 2.209299
+mean(spillover_mixed1$estimate) # -14.85719, bias = 
+coverage_prob(spillover_mixed1, -14.7) #0.955
+
+spillover_mixed2 = rbind(readRDS("spillover_results/1cat1num/spillover_mixed2.RDS"),
+                         readRDS("spillover_results/1cat1num/spillover_mixed2(1).RDS"))
+sd(spillover_mixed2$estimate) # 1.589753
+mean(spillover_mixed2$std.error) # 1.365737
+mean(spillover_mixed2$estimate) # -13.02027, bias = 
+coverage_prob(spillover_mixed2, -13) #0.9116667
+
+#### making tables ####
+inf_table = c(-(mean(inf_plain$estimate)+13), sd(inf_plain$estimate), 
+              mean(inf_plain$std.error), coverage_prob(inf_plain, -13))
+inf_table = rbind(inf_table, c(-(mean(inf_binary1$estimate)+13), sd(inf_binary1$estimate), 
+                               mean(inf_binary1$std.error), coverage_prob(inf_binary1, -13)))
+inf_table = rbind(inf_table, c(-(mean(inf_binary3$estimate)+21), sd(inf_binary3$estimate), 
+                               mean(inf_binary3$std.error), coverage_prob(inf_binary3, -21)))
+inf_table = rbind(inf_table, c(-(mean(inf_cont1$estimate)+13), sd(inf_cont1$estimate), 
+                               mean(inf_cont1$std.error), coverage_prob(inf_cont1, -13)))
+inf_table = rbind(inf_table, c(-(mean(inf_cont2$estimate)+7.5), sd(inf_cont2$estimate), 
+                               mean(inf_cont2$std.error), coverage_prob(inf_cont2, -7.5)))
+inf_table = rbind(inf_table, c(-(mean(inf_mixed1$estimate)+13), sd(inf_mixed1$estimate), 
+                               mean(inf_mixed1$std.error), coverage_prob(inf_mixed1, -13)))
+inf_table = rbind(inf_table, c(-(mean(inf_mixed2$estimate)+7.5), sd(inf_mixed2$estimate), 
+                               mean(inf_mixed2$std.error), coverage_prob(inf_mixed2, -7.5)))
+colnames(inf_table) <- c("bias", "MC SE", "analytical SE", "CP")
+rownames(inf_table) <- c("No-Con", "Binary, Het Sp", "Binary, Het Inf",
+                         "Cont, Het Sp", "Cont, Het Inf",
+                         "Mixed, Het Sp", "Mixed, Het Inf")
+inf_table <- round(inf_table, 3)
+#inf_mixed1 = rbind(readRDS("inf_results/mixed/inf_mixed1(new var_effect).RDS"))
+
+spillover_table = c(-(mean(spillover_plain$estimate)+13), sd(spillover_plain$estimate), 
+              mean(spillover_plain$std.error), coverage_prob(spillover_plain, -13))
+spillover_table = rbind(spillover_table, c(-(mean(spillover_binary1$estimate)+21), sd(spillover_binary1$estimate), 
+                               mean(spillover_binary1$std.error), coverage_prob(spillover_binary1, -21)))
+spillover_table = rbind(spillover_table, c(-(mean(spillover_binary3$estimate)+13), sd(spillover_binary3$estimate), 
+                               mean(spillover_binary3$std.error), coverage_prob(spillover_binary3, -13)))
+spillover_table = rbind(spillover_table, c(-(mean(spillover_cont1$estimate)+7.5), sd(spillover_cont1$estimate), 
+                               mean(spillover_cont1$std.error), coverage_prob(spillover_cont1, -7.5)))
+spillover_table = rbind(spillover_table, c(-(mean(spillover_cont2$estimate)+13), sd(spillover_cont2$estimate), 
+                               mean(spillover_cont2$std.error), coverage_prob(spillover_cont2, -13)))
+spillover_table = rbind(spillover_table, c(-(mean(spillover_mixed1$estimate)+7.5), sd(spillover_mixed1$estimate), 
+                               mean(spillover_mixed1$std.error), coverage_prob(spillover_mixed1, -7.5)))
+spillover_table = rbind(spillover_table, c(-(mean(spillover_mixed2$estimate)+13), sd(spillover_mixed2$estimate), 
+                               mean(spillover_mixed2$std.error), coverage_prob(spillover_mixed2, -13)))
+colnames(spillover_table) <- c("bias", "MC SE", "analytical SE", "CP")
+rownames(spillover_table) <- c("No-Con", "Binary, Het Sp", "Binary, Het Inf",
+                         "Cont, Het Sp", "Cont, Het Inf",
+                         "Mixed, Het Sp", "Mixed, Het Inf")
+
+library(ftExtra)
+spillover_table <- round(spillover_table, 3)
+result_table <- as.data.frame(cbind(spillover_table, inf_table))
+colnames(result_table)[1:4] <- paste("spillover", colnames(result_table)[1:4], sep = "_")
+colnames(result_table)[5:8] <- paste("influencer", colnames(result_table)[5:8], sep = "_")
+ft <- flextable(result_table)
+ft %>% separate_header(sep = "_")
+ft %>% span_header()

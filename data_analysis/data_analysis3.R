@@ -473,6 +473,7 @@ ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
 ###### 
 # 6. 
 # TODO: age
+# younger than 50 or older than 50
 ## 1. educ_good on different ages
 neighX = h_neighcov(graph, 1, X, X_type, x1) 
 neighinfo = list(neighX)

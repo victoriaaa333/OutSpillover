@@ -319,12 +319,14 @@ saveRDS(est3g, "../kaggle/working/inf_cont2_pest.RDS")
 
 
 ### 4. mixed variable ###
+# one numerical and one categorical value
+
 aa4 = c()
 bb4 = c()
 est4g = c()
 est4n = c()
 
-for (i in 1:100) {
+for (i in 1:20) {
   ##########
   #1. Generate a graph and dataset (treatments, covariates)
   graph = make_empty_graph(n = 0, directed = FALSE)
@@ -349,18 +351,18 @@ for (i in 1:100) {
   }
   
   G_mat = as.matrix(G)
-  X1 <- rnorm(length(A),mean = 0.5, sd = 1)
-  X2 <- sample(c("M", "F"), size = length(A), replace = TRUE)
-  X3 <- rnorm(length(A),mean = 0.5, sd = 1)
+  X1 <- sample(c("M", "F"), size = length(A), replace = TRUE)
+  X2 <- rnorm(length(A),mean = 0.5, sd = 1)
   
-  X <- cbind(X2, X3, X1)
-  X_type <- c("C", "N", "N")
-  x0 <- as.matrix(c("M", 0.1, 0.2))
+  X <- cbind(X1, X2)
+  X_type <- c("C", "N")
+  x0 <- as.matrix(c("M", 0.1))
   x1 <- x0
-  x1_num <- c(0.1, 0.2)
+  x1_num <- c(0.1)
   
-  X_num <- apply(as.matrix(X[, X_type == "N"]), 2, as.numeric)
   X_cat <- as.matrix(X[, X_type == "C"])
+  X_num <- as.matrix(cbind(X2,  ifelse(X_cat[,1] == "M", 1, 0)))
+
   
   df <- cbind.data.frame(A,G,X)
   df$treated_neigh <- h_neighsum(graph, A, 1) 
@@ -431,7 +433,7 @@ sd(bb4$estimate) #3.581574
 mean(bb4$std.error) # 2.419118
 mean(bb4$estimate) #-8.896595
 mean(est4g) # -7.232731
-# - (5 + 0.1*7 + 0.2*9) = -7.5
+# - (5 + 0.5*7 + 0.1*9) = -7.5
 saveRDS(bb4, "../kaggle/working/inf_mixed2.RDS")
 saveRDS(est4g, "../kaggle/working/inf_mixed2_pest.RDS")
 

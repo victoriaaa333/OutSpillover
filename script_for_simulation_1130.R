@@ -44,18 +44,18 @@ for (i in 1:1000) {
   }
   
   G_mat = as.matrix(G)
-  X2 <- sample(c("M", "F"), size = length(A), replace = TRUE)
-  X3 <- rnorm(length(A),mean = 0.5, sd = 1)
-  X1 <- rnorm(length(A),mean = 0.5, sd = 1)
+  X1 <- sample(c("M", "F"), size = length(A), replace = TRUE)
+  X2 <- rnorm(length(A),mean = 0.5, sd = 1)
   
-  X <- cbind(X2, X3, X1)
-  X_type <- c("C", "N", "N")
+  X <- cbind(X1, X2)
+  X_type <- c("C", "N")
   X_num <- apply(as.matrix(X[, X_type == "N"]), 2, as.numeric)
+  X_cat <- as.matrix(X[, X_type == "C"])
   
   df <- cbind.data.frame(A,G,X)
   df$treated_neigh <- h_neighsum(graph, A, 1) 
   df$interaction1 <- X_num[,1] * df$treated_neigh
-  df$interaction2 <- X_num[,2] * df$treated_neigh
+  df$interaction2 <- ifelse(X_cat[,1] == "M", 1, 0)  * df$treated_neigh
   
   ##########
   # 2. Spillover model
@@ -314,6 +314,7 @@ saveRDS(bb3, "../kaggle/working/spillover_cont2.RDS")
 saveRDS(est3g, "../kaggle/working/spillover_cont2_pest.RDS")
 
 ### 4. mixed variable ###
+# one categorical and one numerical
 aa4 = c()
 bb4 = c()
 est4g = c()
@@ -344,23 +345,22 @@ for (i in 1:1000) {
   }
   
   G_mat = as.matrix(G)
-  X1 <- rnorm(length(A),mean = 0.5, sd = 1)
-  X2 <- sample(c("M", "F"), size = length(A), replace = TRUE)
-  X3 <- rnorm(length(A),mean = 0.5, sd = 1)
+  X1 <- sample(c("M", "F"), size = length(A), replace = TRUE)
+  X2 <- rnorm(length(A),mean = 0.5, sd = 1)
   
-  X <- cbind(X2, X3, X1)
-  X_type <- c("C", "N", "N")
-  x0 <- as.matrix(c("M", 0.1, 0.2))
+  X <- cbind(X1, X2)
+  X_type <- c("C", "N")
+  x0 <- as.matrix(c("M", 0.1))
   x1 <- x0
-  x1_num <- c(0.1, 0.2)
+  x1_num <- c(0.1)
   
   X_num <- apply(as.matrix(X[, X_type == "N"]), 2, as.numeric)
   X_cat <- as.matrix(X[, X_type == "C"])
   
   df <- cbind.data.frame(A,G,X)
   df$treated_neigh <- h_neighsum(graph, A, 1) 
-  df$interaction1 <- X_num[,1] * df$treated_neigh
-  df$interaction2 <- X_num[,2] * df$treated_neigh
+  df$interaction1 <-  ifelse(X_cat[,1] == "M", 1, 0)  * df$treated_neigh
+  df$interaction2 <- X_num[,1] * df$treated_neigh
   
   ##########
   # 2. Outcome model

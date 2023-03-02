@@ -1,5 +1,7 @@
 # 10/06/22: test for ipw_point_estimates w and w/o the additional terms
 source("point_estimates_utils.R")
+source("mixed_effects.R")
+
 ###### 
 # 1. running a regression with weights in the outcomes
 ipw_point_estimates_mixed_test <- function(H, G, A, weights, X = NULL, x0 = NULL, 
@@ -757,7 +759,7 @@ ipw_point_estimates_mixed_test4 <- function(H, G, A, weights, X = NULL, x0 = NUL
                                                                          alphas, trt_lvls))
   hold_grp_coefG <- array(dim = c(N, (1+len_g+len_h+len_g*len_h)*p, k, l), dimnames = list(grps, predictors, 
                                                                          alphas, trt_lvls))
-  hold_oal_coefM <- array(dim = c((1+len_h+len_g)*p, k, l),
+  hold_oal_coefM <- array(dim = c((1+len_g+len_h+len_g*len_h)*p, k, l),
                           dimnames = list(predictors, alphas, trt_lvls))
   hold_oal_coefH <- array(dim = c((1+len_h)*p, k, l),
                           dimnames = list(predictors, alphas, trt_lvls))
@@ -792,7 +794,7 @@ ipw_point_estimates_mixed_test4 <- function(H, G, A, weights, X = NULL, x0 = NUL
     coef_est_H <- array(dim= c(N, (1+len_h)*p, k))
     coef_est_G <- array(dim= c(N, (1+len_g)*p, k))
     
-    ova_coef_est_M <- array(dim= c(1, (1+len_h+len_g)*p, k))
+    ova_coef_est_M <- array(dim= c(1, (1+len_g+len_h+len_g*len_h)*p, k))
     ova_coef_est_H <- array(dim= c(1, (1+len_h)*p, k))
     ova_coef_est_G <- array(dim= c(1, (1+len_g)*p, k))
     grp_est <- array(dim= c(N, p, k, q))
@@ -825,8 +827,11 @@ ipw_point_estimates_mixed_test4 <- function(H, G, A, weights, X = NULL, x0 = NUL
       weights_est_df <- weights_trt[ , , j]
       
       if (Con_type == "mixed"){
-        grp_est[ , p, j, ] <- apply(as.matrix(x1), 2, mixed_means, 
-                                    overall_coef = ova_coef_est_M[ , , j], 
+        grp_est_overall[ , p, j, ] <- apply(as.matrix(x1), 2, mixed_means_overall,
+                                            overall_coef = ova_coef_est_M[ , , j],
+                                            X_type = X_type, x0 = x0, N = N)
+        grp_est[ , p, j, ] <- apply(as.matrix(x1), 2, mixed_means_group, 
+                                    cond_coefs = coef_est_M[ , , j], 
                                     X_type = X_type, x0 = x0) 
         #TODO: fill out the function for mixed means 
       }else if (Con_type == "neigh"){
@@ -874,14 +879,14 @@ ipw_point_estimates_mixed_test4 <- function(H, G, A, weights, X = NULL, x0 = NUL
     out$outcomes$overall <- array(hold_oal, dim = c(k, l, q),
                                   dimnames = list(alphas, trt_lvls, qnames))
     
-    out$outcomes$grp_coefM <- array(hold_grp_coefM, dim = c(N, (1+len_h+len_g)*p, k, l), 
+    out$outcomes$grp_coefM <- array(hold_grp_coefM, dim = c(N, (1+len_h+len_g+len_h*len_g)*p, k, l), 
                                     dimnames = list(grps, predictors, alphas, trt_lvls))
     out$outcomes$grp_coefH <- array(hold_grp_coefH, dim = c(N, (1+len_h)*p, k, l), 
                                     dimnames = list(grps, predictors, alphas, trt_lvls))
     out$outcomes$grp_coefG <- array(hold_grp_coefG, dim = c(N, (1+len_g)*p, k, l),
                                     dimnames = list(grps, predictors, alphas, trt_lvls))
     
-    out$outcomes$overall_coefM <- array(hold_oal_coefM, dim = c((1+len_h+len_g)*p, k, l),
+    out$outcomes$overall_coefM <- array(hold_oal_coefM, dim = c((1+len_h+len_g+len_h*len_g)*p, k, l),
                                         dimnames = list(predictors, alphas, trt_lvls))
     out$outcomes$overall_coefH <- array(hold_oal_coefH, dim = c((1+len_h)*p, k, l),
                                         dimnames = list(predictors, alphas, trt_lvls))

@@ -189,7 +189,7 @@ ipw_regression_variance <- function(H,
       
       var_mat = sig_effect(psi_group1, psid_mat_grp1, psi_group2, psid_mat_grp2, len_n)
       #ave <- var_effect(G, A, X_reg, t1, t2, var_mat, cat_ind)
-      ave <- var_effect(G, A, var_mat, cat_ind, X_reg, X_mean)
+      ave <- var_effect(G, A, var_mat, cat_ind, X_reg, X_mean = X_mean)
       
       X_fit1 = var_para(reg_coef, a1, t1, X_reg, H, weights_ind, A, G, cat_ind)[[3]] #TODO: all categorical, reg_coef is uncorrect?
       X_fit2 = var_para(reg_coef, a2, t2, X_reg, H, weights_ind, A, G, cat_ind)[[3]]
@@ -218,7 +218,7 @@ ipw_regression_variance <- function(H,
       psid_mat_grp = var_para(reg_coef, a1, t1, X_reg, H, weights_ind, A, G, cat_ind)[[2]]
       var_mat = sig_outcome(psi_group, psid_mat_grp)
       #ave <- var_outcome(G, A, X_reg, t1, var_mat, cat_ind)
-      ave <- var_outcome(G, A, var_mat, cat_ind, X_reg, X_mean)
+      ave <- var_outcome(G, A, var_mat, cat_ind, X_reg, X_mean = X_mean)
       
       X_fit = var_para(reg_coef, a1, t1, X_reg, H, weights_ind, A, G, cat_ind)[[3]]
       X_data = as.data.frame(cbind(G, X_fit))
