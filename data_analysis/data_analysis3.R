@@ -475,23 +475,52 @@ ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
 # TODO: age
 # younger than 50 or older than 50
 ## 1. educ_good on different ages
-neighX = h_neighcov(graph, 1, X, X_type, x1) 
-neighinfo = list(neighX)
-names(neighinfo) <- c('neighX')
+# neighX = h_neighcov(graph, 1, X, X_type, x1) 
+# neighinfo = list(neighX)
+# names(neighinfo) <- c('neighX')
 
+age_ind <- ifelse(cai$age > 50, 1, 0)
+Cat_ind0 <- ifelse(age_ind == 0, 1, NA)
+Cat_ind1 <- ifelse(age_ind == 1, 1, NA)
+H_cat0_age <- rep(NA, length(unit_names))
+H_cat1_age <- rep(NA, length(unit_names))
+
+for (i in 1:length(unit_names)) {
+  neigh_names <- setdiff(as.vector(names(which(A[i,] == 1))),
+                         noinfo_neigh)
+  neigh_ind <- which(cai$id %in% neigh_names)
+  filter_neigh_ind <- intersect(filter_ind, neigh_ind)
+  
+  H_cat0_age[i] <- ifelse(length(filter_neigh_ind) > 0,
+                           mean(Y[filter_neigh_ind] * Cat_ind0[filter_neigh_ind], na.rm = TRUE), NA)
+  H_cat1_age[i] <- ifelse(length(filter_neigh_ind) > 0,
+                           mean(Y[filter_neigh_ind] * Cat_ind1[filter_neigh_ind], na.rm = TRUE), NA)
+  }
+
+  
 X_con = cbind(cai$educ_good)
 colnames(X_con) <- c("educ") 
 x0_con = as.matrix(c(1))
 X_type_con = as.matrix(c("C"))
-point_estimates1 <- ipw_point_estimates_mixed_test4(H, G, A, w.matrix, 
-                                                     neighinfo = neighinfo, x1 = x1, 
-                                                     X_type = X_type,  Con_type = "neigh")
-
+point_estimates1 <- ipw_point_estimates_mixed_test5(H_cat1_age,  group_no, trt, w.matrix,
+                                                     X = X_con, x0 = x0_con, 
+                                                     X_type = X_type_con,  Con_type = "group")
 point_estimates1$outcomes$overall
 ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
                       marginal = FALSE, allocation1 = allocations[1], 
                       allocation2 = allocations[1])
+# estimate std.error  conf.low conf.high
+# 1 -2.196314 0.2818769 -2.748782 -1.643845
 
+point_estimates0 <- ipw_point_estimates_mixed_test5(H_cat0_age, group_no, trt, w.matrix,
+                                                    X = X_con, x0 = x0_con, 
+                                                    X_type = X_type_con,   Con_type = "group")
+point_estimates0$outcomes$overall
+ipw_m_variance_groups(w.matrix, point_estimates0, effect_type ='contrast',
+                      marginal = FALSE, allocation1 = allocations[1], 
+                      allocation2 = allocations[1])
+# estimate std.error  conf.low conf.high
+# 1 -1.937189  0.257718 -2.442307 -1.432071
 
 
 

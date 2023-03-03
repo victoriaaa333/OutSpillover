@@ -149,11 +149,13 @@ coverage_prob(inf_mixed2, -7.5) #0.844
 # 2. increase the number of clusters to 200.
 # 3. write down the table
 
-### Increase number of clusters to 200 ###
+#### Increase number of clusters to 200 ####
 #### Spillover Model Simulations ####
 ## No-condition ##
+# nsim = 600
 spillover_plain = rbind(readRDS("spillover_results/num_of_clusters_200/spillover_plain.RDS"),
                         readRDS("spillover_results/num_of_clusters_200/spillover_plain(1).RDS"))
+
 sd(spillover_plain$estimate) # 2.168015
 mean(spillover_plain$std.error) # 2.01858
 mean(spillover_plain$estimate) # -13.21375, bias = 0.21375
@@ -381,3 +383,4 @@ colnames(result_table)[5:8] <- paste("influencer", colnames(result_table)[5:8], 
 ft <- flextable(result_table)
 ft %>% separate_header(sep = "_")
 ft %>% span_header()
+
