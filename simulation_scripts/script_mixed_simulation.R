@@ -1,34 +1,25 @@
-source("weight_matrix.R")
-source("ipw_point_estimate_tests.R")
-source("integrand.R")
-source("utils.R")
-source("bootstrap_variance.R")
-source("effects.R")
-source("m_variance.R")
-source("regression_variance.R")
-source("regression_utils.R")
-source("regression_utils_neigh.R")
-source("mixed_effects.R")
+source("utils/weight_matrix.R")
+source("point_estimates/point_estimates.R")
+source("utils/integrand.R")
+source("utils/utils.R")
+source("variances/bootstrap_variance.R")
+source("variances/m_variance.R")
+source("variances/regression_variance.R")
+source("variances/regression_utils.R")
+source("variances/regression_utils_neigh.R")
+source("utils/mixed_effects.R")
 
 library(igraph)
 library(lme4)
-
-aa4 = c()
-bb4 = c()
-est4g = c()
-est4n = c()
-
 
 aa5 = c()
 for (i in 1:20) {
   ##########
   #1. Generate a graph and dataset (treatments, covariates)
   graph = make_empty_graph(n = 0, directed = FALSE)
-  repeat{
+  while (clusters(graph)$no < 50) {
     g2 = sample_gnp(100, 0.5, directed = FALSE, loops = FALSE)
     graph = disjoint_union(graph, g2)
-    if (clusters(graph)$no =200){
-      break}
   }
   G = components(graph)$membership
   
@@ -55,7 +46,7 @@ for (i in 1:20) {
   x1_num <- c(0.1)
   
   X_cat <- as.matrix(X[, X_type == "C"])
-  X_num <- as.matrix(cbind(X2,  ifelse(X_cat[,1] == "M", 1, 0)))
+  X_num <- as.matrix(cbind(ifelse(X_cat[,1] == "M", 1, 0), X2))
   
   
   df <- cbind.data.frame(A,G,X)
@@ -64,10 +55,10 @@ for (i in 1:20) {
   df$interaction2 <- cov_neighsum(graph, A, 1, X = X_num[,2]) #, X_cat, "M"
   df$interaction3 <- X_num[,1] * df$treated_neigh
   df$interaction4 <- X_num[,2] * df$treated_neigh
-  #xdf$interaction5 <- df$interaction1 * df$interaction3
+  
   ##########
   # 2. Outcome model
-  a = 2; b = 4; c = 7; d = 9; e = 10; f = 12
+  a = 5; b = 1; c = 1; d = 2; e = 3; f = 4
   Y = apply(cbind(df$A, df$treated_neigh, df$interaction1, df$interaction2, 
                   df$interaction3, df$interaction4), 1, #X_num,
             function(x)  rnorm(1, mean = a*x[1] + b*x[2] + c*x[3] + 
@@ -92,52 +83,13 @@ for (i in 1:20) {
                                                        X = X, x0 = x0, neighinfo = neighinfo, x1= x1,
                                                        X_type = X_type, Con_type = "mixed")
   
-  aa5 = c(aa5, point_estimates$outcomes$overall[1]-
-                       point_estimates$outcomes$overall[2])
-  # a = ipw_regression_variance_neigh(H_M, w.matrix, point_estimates_n, A, 
-  #                                   effect_type ='contrast', marginal = FALSE, 
-  #                                   allocation1 = allocations[1], allocation2 = allocations[1], 
-  #                                   neighinfo = neighinfo, x1_num = x1_num)
-  # b = ipw_regression_variance(H, w.matrix, point_estimates_g, A, 
-  #                             effect_type ='contrast',marginal = FALSE, 
-  #                             allocation1 = allocations[1], allocation2 = allocations[1],
-  #                             X = X, x0 = x0, X_type = X_type)
-  # aa4 = rbind(aa4, a)
-  # bb4 = rbind(bb4, b)
-  # 
-  # point_estimates_n2 <- ipw_point_estimates_mixed_test5(H_M, G, A, w.matrix, 
-  #                                                       neighinfo = neighinfo, x1 = x1, 
-  #                                                       X_type = X_type,  Con_type = "neigh")
-  # point_estimates_g2 <- ipw_point_estimates_mixed_test5(H, G, A, w.matrix, 
-  #                                                       X = X, x0 = x0, 
-  #                                                       X_type = X_type, Con_type = "group")
-  # est4g = c(est4g,
-  #           point_estimates_g2$outcomes$overall[1]-
-  #             point_estimates_g2$outcomes$overall[2])
-  # est4n = c(est4n,
-  #           point_estimates_n2$outcomes$overall[1]-
-  #             point_estimates_n2$outcomes$overall[2])
+  a = ipw_regression_variance_mixed(H_M, w.matrix, point_estimates, A, 
+                                effect_type ='contrast', marginal = FALSE, 
+                                allocation1 = allocations[1], allocation2 = allocations[1], 
+                                X = X, X_type = X_type, x0 = x0,
+                                neighinfo = neighinfo, x1_num = x1_num)
+  aa5 = rbind(aa5, a)
 }
 
 saveRDS(aa5, "../kaggle/working/mixed.RDS")
-
-sd(aa4$estimate) # 5.651792
-mean(aa4$std.error)# 4.805365
-mean(aa4$estimate) # -13.62658
-mean(est4n) # -14.18967
-# - (5 + 0.5*7 + 0.5*9) = -13
-saveRDS(aa4, "../kaggle/working/inf_mixed1.RDS")
-saveRDS(est4n, "../kaggle/working/inf_mixed1_pest.RDS")
-
-sd(bb4$estimate) #3.581574
-mean(bb4$std.error) # 2.419118
-mean(bb4$estimate) #-8.896595
-mean(est4g) # -7.232731
-# - (5 + 0.5*7 + 0.1*9) = -7.5
-saveRDS(bb4, "../kaggle/working/inf_mixed2.RDS")
-saveRDS(est4g, "../kaggle/working/inf_mixed2_pest.RDS")
-
-
-
-
 

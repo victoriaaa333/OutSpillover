@@ -1,6 +1,6 @@
 # 10/06/22: test for ipw_point_estimates w and w/o the additional terms
-source("point_estimates_utils.R")
-source("mixed_effects.R")
+source("point_estimates/point_estimates_utils.R")
+source("utils/mixed_effects.R")
 
 ###### 
 # 1. running a regression with weights in the outcomes
@@ -833,7 +833,6 @@ ipw_point_estimates_mixed_test4 <- function(H, G, A, weights, X = NULL, x0 = NUL
         grp_est[ , p, j, ] <- apply(as.matrix(x1), 2, mixed_means_group, 
                                     cond_coefs = coef_est_M[ , , j], 
                                     X_type = X_type, x0 = x0) 
-        #TODO: fill out the function for mixed means 
       }else if (Con_type == "neigh"){
         grp_est_overall[ , p, j, ] <- apply(as.matrix(x1), 2, neigh_means_oncont4,
                                      overall_coef = ova_coef_est_H[ , , j],
