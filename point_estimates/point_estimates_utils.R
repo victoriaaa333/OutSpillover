@@ -162,7 +162,7 @@ neigh_means_oncont3 <- function(cond_coefs, X_type, x1){
   cond_group_means
 }
 
-######
+###### old functions not used in point estimates now ######
 # old functions not used in point estimates now
 group_means_null0 <- function(ind_est_df, G, A, a){
   group_df <- as.data.frame(cbind(ind_est_df, G, A))

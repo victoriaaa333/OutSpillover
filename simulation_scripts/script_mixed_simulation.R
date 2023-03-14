@@ -27,7 +27,7 @@ for (i in 1:20) {
   repeat{
     g2 = sample_gnp(100, 0.5, directed = FALSE, loops = FALSE)
     graph = disjoint_union(graph, g2)
-    if (clusters(graph)$no == 50){
+    if (clusters(graph)$no =200){
       break}
   }
   G = components(graph)$membership
