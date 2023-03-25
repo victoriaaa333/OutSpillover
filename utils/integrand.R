@@ -95,7 +95,7 @@ logit_integrand <- function(b, X, A,
     }
   }
   
-  hh <- (pr.b/allocation)^A * ((1-pr.b)/(1 - allocation))^(1-A)
+  hh <- as.matrix((pr.b/allocation)^A * ((1-pr.b)/(1 - allocation))^(1-A))
   
   if(ignore_re){
     # in this way dnorm integrates to one when integrating from -Inf to Inf

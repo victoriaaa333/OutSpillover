@@ -14,11 +14,12 @@
 #'
 #-----------------------------------------------------------------------------#
 
-wght_calc <- function(integrand, 
-                      numerator_alpha,
-                      denominator_alphas,
-                      parameters = NULL,
-                      randomizations = NULL,
+wght_calc <- function(parameters,
+                      integrand, 
+                      allocation,
+                      P, # first stage probability
+                      randomization = 1,
+                      integrate_allocation = FALSE,
                       ...)
 {  
   ## Necessary pieces ##
@@ -27,15 +28,20 @@ wght_calc <- function(integrand,
   dots              <- list(...)
   dot.names         <- names(dots)
   A                 <- dots[[match.arg('A', dot.names)]]
-  P                 <- dots[[match.arg('P', dot.names)]]
-  X                 <- dots[[match.arg('X', dot.names)]]
+  #P                 <- dots[[match.arg('P', dot.names)]]
+  #X                 <- dots[[match.arg('X', dot.names)]]
+  
+  numerator_alpha <- allocation[1]
+  denominator_alphas <- allocation[-1]
+  
+  ## Warnings ##
+  if(!'A' %in% dot.names){
+    stop("The argument 'A' (treatment assignment) must be specified")
+  }
   
   if (is.null(parameters)){
     PrA    <- integrand(A, denominator_alphas, P)
   }else{
-    if(length(randomizations) != length(P)) stop("b should be equal length of P")
-    
-    PrA_eachb = c()
     
     # Integrate() arguments ##
     if(!'lower' %in% dot.names){
@@ -44,27 +50,29 @@ wght_calc <- function(integrand,
     if(!'upper' %in% dot.names){
       dots$upper <- Inf
     }
-    
-    for (r in randomizations) {
-      int.args <- append(get_args(stats::integrate, dots),
+
+    # default randomization is =1
+    int.args <- append(get_args(stats::integrate, dots),
                          list(f = integrand, parameters = parameters, 
-                              randomization = r))
-      args <- append(get_args(integrand, dots), int.args)
+                              randomization = randomization))
+    args <- append(get_args(integrand, dots), int.args)
       
-      ## Compute the integral ##
-      # if any of the products within the integrand return Inf, then return NA
-      # else return the result of integration
+    ## Compute the integral ##
+    # if any of the products within the integrand return Inf, then return NA
+    # else return the result of integration
       
-      f <- try(do.call(stats::integrate, args = args), silent = TRUE)
-      PrA_eachb <- c(PrA_eachb, if(is(f, 'try-error')) NA else f$value)
+    f <- try(do.call(stats::integrate, args = args), silent = TRUE)
+    PrA <- if(is(f, 'try-error')) NA else f$value
+    #PrA_eachb <- c(PrA_eachb, if(is(f, 'try-error')) NA else f$value)
     }
+    #PrA <- sum(PrA_eachb*P)
     
-    PrA <- sum(PrA_eachb*P)
-    
-  }
-  
+  if(integrate_allocation == TRUE){
+    weight <- 1/PrA
+  } else {
   ppp    <- prod(numerator_alpha^A * (1-numerator_alpha)^(1-A))
   weight <- ppp/PrA
+  }
   weight
 }
 
@@ -90,17 +98,16 @@ wght_calc <- function(integrand,
 wght_matrix <- function(integrand, 
                         allocations, 
                         G, A, P,
-                        X = NULL, 
-                        parameters = NULL,
-                        randomizations = NULL,
-                        runSilent = TRUE, 
+                        X, 
+                        parameters,
+                        randomization = 1,
+                        integrate_allocation = FALSE,
+                        runSilent = TRUE,
                         ...)
 {
   ## Gather necessary bits ##
   X_col  <- ifelse(is.null(ncol(X)), 0, ncol(X)) 
   gg <- sort(unique(G))
-  #denominator_alphas = unique(unlist(lapply(allocations, function (x) x[2])))
-  denominator_alphas = unique(unlist(lapply(allocations, function (x) x[-1])))
   
   ## Compute weight for each group and allocation level ##
   if(!runSilent) print('Calculating matrix of IP weights...') 
@@ -110,28 +117,30 @@ wght_matrix <- function(integrand,
       w <- by(cbind(X, A), INDICES = G, simplify = FALSE, 
               FUN = function(x) {
                 wght_calc(
+                  parameters = parameters,
                   integrand  = integrand, 
-                  numerator_alpha = allocation[1],
-                  denominator_alphas = denominator_alphas, 
+                  allocation = allocation,
+                  #numerator_alpha = allocation[1],
+                  #denominator_alphas = denominator_alphas, 
                   P = P,
                   A = x[, X_col+1], 
-                  X = NULL, #x[,X_col]
-                  parameters = parameters,
-                  randomizations = randomizations)})
+                  X = X, #x[,X_col]
+                  randomization = randomization,
+                  integrate_allocation = integrate_allocation)})
       as.numeric(w)})
   }else{
   w.list <- lapply(allocations, function(allocation){
     w <- by(cbind(X, A), INDICES = G, simplify = FALSE, 
             FUN = function(x) {
               wght_calc(
-                        integrand  = integrand, 
-                        numerator_alpha = allocation[1],
-                        denominator_alphas = denominator_alphas, 
-                        P = P,
-                        A = x[, X_col+1], 
-                        X = x[, 1:X_col],
-                        parameters = parameters,
-                        randomizations = randomizations)})
+                parameters = parameters,
+                integrand  = integrand, 
+                allocation = allocation,
+                P = P,
+                A = x[, X_col+1], 
+                X = x[, 1:X_col],
+                randomization = randomization,
+                integrate_allocation = integrate_allocation)})
     as.numeric(w)})
     }
   
@@ -144,6 +153,7 @@ wght_matrix <- function(integrand,
   return(w.matrix)
 }
 
+# derive is only for integrating, so no need for P
 wght_deriv_calc <- function(integrand,
                             parameters,
                             allocation,
@@ -154,7 +164,7 @@ wght_deriv_calc <- function(integrand,
   integrand <- match.fun(integrand)
   dots <- list(...)
   
-  ## Integrand and  arguments ##
+  ## Integrand and arguments ##
   int.args <- append(get_args(integrand, dots),
                      get_args(stats::integrate, dots))
   
@@ -172,19 +182,23 @@ wght_deriv_calc <- function(integrand,
 wght_deriv_array <- function(parameters, 
                              integrand, 
                              allocations, 
-                             G, A, P, 
-                             X = NULL,
-                             runSilent = TRUE, 
+                             G, A, P,
+                             X,
                              integrate_allocation = TRUE,
+                             runSilent = TRUE, 
                              ...)
 {
   ## Gather necessary bits ##
   integrand <- match.fun(integrand)
   XX <- cbind(X, A)
   #p  <- ncol(X) # number of predictors
-  p <- ifelse(is.null(ncol(X)),0,ncol(X)) 
+  p <- ifelse(is.null(ncol(X)), 0, ncol(X)) 
   pp <- length(parameters)
-  aa <- sort(allocations) # Make sure alphas are sorted
+  
+  ## reformatting allocation ##
+  # numerator_alphas = unique(unlist(lapply(allocations, function (x) x[1])))
+  # aa <- sort(allocations) # Make sure alphas are sorted
+  aa <- allocations
   gg <- sort(unique(G))
   k  <- length(allocations) 
   N  <- length(unique(G))

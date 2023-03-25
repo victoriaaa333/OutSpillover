@@ -1,4 +1,5 @@
-source("results/results_utils.R")
+setwd("~/Desktop/out-spillover/simulation_results")
+source("results_utils.R")
 
 # Avg, Het infl, Het Sp and Het infl+Sp
 
@@ -24,7 +25,6 @@ result_stats(inf_binary_inf, 3 + 1*1)
 inf_binary_sp =  rbind(readRDS("inf_results/small_coef/inf_binary_sp.RDS"),
                      readRDS("inf_results/small_coef/inf_binary_sp (1).RDS"))
 result_stats(inf_binary_sp, 3.5)
-
 
 # 2. one continuous covariate
 inf_cont_nocon =  rbind(readRDS("inf_results/small_coef/inf_cont_nocon.RDS"),
@@ -58,3 +58,8 @@ inf_mixed_sp =  rbind(readRDS("inf_results/small_coef/inf_mixed_sp.RDS"),
                        readRDS("inf_results/small_coef/inf_mixed_sp(2).RDS"))
 result_stats(inf_mixed_sp, 3 + 1*0.5 + 2*0.5)
 #  4.571 0.071 0.675 0.682 0.947
+
+
+### Mixed Mixed model ###
+mixed_mixed = readRDS("mixed_results/mixed.RDS")
+result_stats(mixed_mixed, 1 + 1 + 2*0.1 + 3 + 4*0.1) 

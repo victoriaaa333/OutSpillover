@@ -93,3 +93,11 @@ for (i in 1:20) {
 
 saveRDS(aa5, "../kaggle/working/mixed.RDS")
 
+
+aa5 = readRDS("simulation_results/mixed_results/mixed.RDS")
+mean(aa5$std.error)
+sd(aa5$estimate)
+mean(aa5$estimate)
+# 1 + 1 + 2*0.1 + 3 + 4*0.1 5.6
+
+

@@ -1,0 +1,252 @@
+---
+title: "tmp- propensity variance"
+author: "Yihan Bao yb254"
+date: "3/14/2023"
+output: html_document
+---
+```{r}
+setwd("~/Desktop/out-spillover")
+source("utils/weight_matrix.R")
+source("point_estimates/point_estimates.R")
+source("utils/integrand.R")
+source("utils/utils.R")
+source("variances/bootstrap_variance.R")
+source("variances/m_variance.R")
+source("variances/regression_variance.R")
+source("variances/regression_utils.R")
+source("variances/regression_utils_neigh.R")
+source("utils/mixed_effects.R")
+source("propensity/propensity.R")
+library(igraph)
+library(lme4)
+```
+
+
+```{r}
+# 0.1 first generating the model for spillover effect
+
+##########
+  #1. Generate a graph and dataset (treatments, covariates)
+  graph = make_empty_graph(n = 0, directed = FALSE)
+  repeat{
+    g2 = sample_gnp(20, 0.5, directed = FALSE, loops = FALSE)
+    graph = disjoint_union(graph, g2)
+    if (clusters(graph)$no == 10){
+      break}
+  }
+  G = group_vector(graph) 
+  
+  numerator_alpha = 0.5
+  denominator_alphas = c(0.4,0.6)
+  P = c(0.5,0.5) 
+  P_1 = sample(c(1,2), length(unique(G)), replace = TRUE, prob = P)
+  P_1 = sapply(G, function(x) P_1[x])
+  P_2 = rep(NA, length(P_1))
+  A = rep(NA, length(P_1))
+  for (i in 1:length(P_1)) {
+    P_2[i] = denominator_alphas[P_1[i]]
+    A[i] = sample(c(0,1), 1, prob = c(1-P_2[i],P_2[i]))
+  }
+  
+  G_mat = as.matrix(G)
+  X1 <- sample(c("M", "F"), size = length(A), replace = TRUE)
+  X2 <- rnorm(length(A),mean = 0.5, sd = 1)
+  
+  X <- cbind(X1, X2)
+  X_type <- c("C", "N")
+  x0 <- as.matrix(c("M", 0.1))
+  x1 <- x0
+  x1_num <- c(0.1)
+  
+  X_num <- apply(as.matrix(X[, X_type == "N"]), 2, as.numeric)
+  X_cat <- as.matrix(X[, X_type == "C"])
+  
+  df <- cbind.data.frame(A,G,X)
+  df$treated_neigh <- h_neighsum(graph, A, 1) 
+  df$interaction1 <-  ifelse(X_cat[,1] == "M", 1, 0)  * df$treated_neigh
+  df$interaction2 <- X_num[,1] * df$treated_neigh
+  
+  ##########
+  # 2. Outcome model
+  aa = 2; bb = 5; cc = 7; dd = 9
+  Y = apply(cbind(df$A, df$treated_neigh, df$interaction1, df$interaction2), 1, #X_num,
+            function(x)  rnorm(1, mean = aa*x[1] + bb*x[2] + cc*x[3] + dd*x[4], sd = 1))  
+  H = h_neighborhood(graph, Y, 1) 
+  H_M =  h_neighborhood(graph, Y, 1, X_cat, c("M")) 
+  df$Y = Y
+  df$H = H
+  df$H_M = H_M
+  
+  # 2.1 neighinfo
+  neighX = h_neighcov(graph, 1, X, X_type, x1) # average of X for unit j's 1-order neighbor
+  neighinfo = list(neighX)
+  names(neighinfo) <- c('neighX')
+
+  ##########
+  # 3. calculate the point estimates and the variances (bootstrapped and analytical)
+  allocations = list(c(0.5,denominator_alphas))
+  w.matrix = wght_matrix(plain_integrand, allocations, G, A, P)
+  
+  point_estimates_n <- ipw_point_estimates_mixed_test4(H_M, G, A, w.matrix, 
+                                                       neighinfo = neighinfo,
+                                                       x1 = x1, 
+                                                       X_type = X_type,
+                                                       Con_type = "neigh")
+  point_estimates_g <- ipw_point_estimates_mixed_test4(H, G, A, w.matrix, 
+                                                       X = X, x0 = x0, 
+                                                       X_type = X_type,
+                                                       Con_type = "group")
+  
+```
+
+
+
+# logit_integrand function and parameter
+```{r}
+# 0.2 Necessary bits for propensity score function
+# df$X3 <- rnorm(length(G))
+# Xx <- as.matrix(cbind(X2, rnorm(length(G))))
+# TODO: what to do with categorical variables? i guess run separate regressions
+formula <- H | A  ~  X2 + (1|G) | G
+
+# 1. test integrand function
+parameters <- unlist(propensity_parameter(formula, df)[1])
+#b <- unlist(.[1])[3]
+b <- c(0, 1)
+X_wint <- cbind(1, X2)
+logit_integrand(b, X_wint, A, parameters, 
+                 allocation = A, randomization = 1)
+#plain_integrand(A[1:100], denominator_alphas = denominator_alphas, P = P)
+
+# 2. test weights function
+#wght_calc(integrand, numerator_alpha, 
+#          denominator_alphas, parameters = parameters, ...)
+
+
+## NOTICE:
+# If logit_integrand, X needs to incorporate intercept
+# TODO: modify this 
+allocations = list(c(0.5,denominator_alphas))
+w.matrix = wght_matrix(integrand =logit_integrand, 
+                        allocations, 
+                        G, A, P,
+                        X = as.matrix(X2), 
+                        parameters = parameters,
+                        randomization = 1,
+                        integrate_allocation = TRUE,
+                        runSilent = TRUE)
+w.matrix
+# 3. how to incorporate the second-stage denominator (0.4, 0.6) in propensity score
+
+weightd <-             wght_deriv_array(parameters = c(1,1,2), 
+                             integrand = logit_integrand, 
+                             allocations = allocations, 
+                             G, A, P, 
+                             X = as.matrix(X2),
+                             runSilent = TRUE, 
+                             integrate_allocation = FALSE)
+
+```
+
+the weight is pi/pr(A):  ppp    <- prod(numerator_alpha^A * (1-numerator_alpha)^(1-A)) weight <- ppp/PrA
+
+# variance
+```{r}
+dots = list()
+propensity_integrand = logit_integrand
+integrand_args <- get_args(FUN = propensity_integrand, args_list = dots)
+  point_est_args <- get_args(FUN = ipw_point_estimates, args_list = dots)
+  loglihood_args <- get_args(FUN = loglihood_integrand, args_list = dots)
+  grad_args      <- get_args(FUN = numDeriv::grad, args_list = dots)
+  integrate_args <- get_args(FUN = stats::integrate, args_list = dots)
+
+  weight_args <- append(append(integrand_args, integrate_args),
+                        list(integrand   = propensity_integrand, 
+                             allocations = allocations, 
+                             X = as.matrix(X2), A = A, G = G,
+                             parameters = c(1, 1, 0),
+                             runSilent  = TRUE, #BB 2015-06-23
+                             integrate_allocation = TRUE
+                             ))
+
+weights <- do.call(wght_matrix, args = weight_args)
+weightd <- do.call(wght_deriv_array, args = append(weight_args, grad_args)) 
+ 
+
+```
+
+
+
+
+
+
+
+# parameter
+```{r}
+# necessary bits
+  cformula        <- Formula::Formula(formula)
+  len_lhs         <- length(cformula)[1]
+  len_rhs         <- length(cformula)[2]
+propensity_formula <- formula(stats::terms(cformula, lhs = len_lhs, rhs = -2))
+model_method = "glmer"
+model_options = list(family = stats::binomial(link = 'logit'))
+
+## TODO: when fit the data, we need to select only the element needed and set them to numeric
+data = as.data.frame(cbind(df$A, as.numeric(df$X2), df$G))
+colnames(data) <- c("A", "X2", "G")
+
+estimation_args <- append(list(formula = propensity_formula, data = data), 
+                            model_options)
+  
+parameters <- list()
+  
+  if(model_method == "glmer"){
+    propensity_model <- do.call(lme4::glmer, args = estimation_args)
+    parameters$fixed_effects  <- lme4::getME(propensity_model, 'fixef')
+    parameters$random_effects <- lme4::getME(propensity_model, 'theta')
+    X <- lme4::getME(propensity_model, "X")
+    
+    if(sum(parameters$random_effects == 0) > 0){
+      stop('At least one random effect was estimated as 0. This will lead to a
+           non-invertible matrix if using robust variance estimation.')
+    }
+  } else if(model_method == "glm"){
+    propensity_model <- do.call("glm", args = estimation_args)
+    parameters$fixed_effects  <- stats::coef(propensity_model)
+    parameters$random_effects <- NULL
+    X <- stats::model.matrix(propensity_model)
+  } else if(model_method == "oracle"){
+    parameters$fixed_effects  <- model_options[[1]]
+    parameters$random_effects <- model_options[[2]]
+    X <- stats::model.matrix(propensity_formula, data)
+    
+    if(length(parameters$fixed_effects) != ncol(X)){
+      stop('oracle fixed effects vector must have length of # of columns of X')
+    }
+  }
+  
+```
+
+
+
+```{r}
+  allocations = list(c(0.5,denominator_alphas))
+  XXX <- cbind(rep(1, 10), seq(0, 1, length = 10))
+  AAA <- rep(c(0, 1), 5)
+  fff <- c(.1, .1)
+  aaa <- c(.1, .5, .9)
+  GGG <- sort(rep(1:5, 2))
+  wght_deriv_calc(integrand = logit_integrand, 
+                               allocation = c(0.3, 0.4, 0.5), 
+                               X = XXX[1:2, ], A = AAA[1:2], 
+                               parameters = c(1, .5, 1), 
+                               randomization = .5)
+  
+wght_deriv_array(integrand = logit_integrand,
+                           allocations = aaa,
+                           X = XXX, A = AAA, G = GGG,
+                           parameters = c(fff, 5),
+                           randomization = .5,
+                           runSilent = TRUE)
+```
+
