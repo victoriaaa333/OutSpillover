@@ -19,14 +19,14 @@ library(lme4)
 aa1 = c()
 aa1_est1 = c()
 
-for (i in 1:1000) {
+for (i in 1:100) {
   ##########
   # 1. generate the graphs
   graph = make_empty_graph(n = 0, directed = FALSE)
   repeat{
-    g2 = sample_gnp(100, 0.5, directed = FALSE, loops = FALSE)
+    g2 = sample_gnp(200, 0.5, directed = FALSE, loops = FALSE)
     graph = disjoint_union(graph, g2)
-    if (clusters(graph)$no == 50){
+    if (clusters(graph)$no == 100){
       break}
   }
   G = components(graph)$membership

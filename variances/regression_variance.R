@@ -1,5 +1,6 @@
-source("regression_utils.R")
-source("regression_utils_neigh.R")
+source("variances/regression_utils.R")
+source("variances/regression_utils_neigh.R")
+source("variances/regression_utils_mixed.R")
 
 # no implementation of marginal yet
 # regression variance for conditional within neighbors
@@ -625,3 +626,125 @@ ipw_m_variance_groups <- function(weights,
                     conf.low = pe - me, conf.high = pe + me)
   return(out)
 }
+
+
+
+
+ipw_regression_variance_mixed <- function(H,
+                                    weights, 
+                                    point_estimates, 
+                                    A,
+                                    effect_type, 
+                                    marginal,
+                                    allocation1, 
+                                    allocation2 = NA,
+                                    t1 = 0, 
+                                    t2 = 1, 
+                                    X = NULL,
+                                    X_type = NULL, 
+                                    x0 = NULL,
+                                    neighinfo = NULL,
+                                    x1_num = NULL,
+                                    rescale.factor = 1,
+                                    conf.level = 0.95,
+                                    print = FALSE){  
+  
+  ## Necessary bits ##
+  N  <- dim(weights)[1] 
+  p  <- dim(weights)[2] 
+  k  <- length(allocations)
+  l  <- dim(point_estimates$outcomes$overall)[2]
+  a1 <- as.character(allocation1)
+  a2 <- as.character(allocation2)
+  t1 <- as.character(t1)
+  t2 <- as.character(t2)
+  
+  ## group coefficients conditional on x0_cat ##
+  X_cat <- as.matrix(X[, X_type == "C"])
+  x0_cat <- x0[X_type == "C"]
+  
+  X_num <- apply(as.matrix(X[, X_type == "N"]), 2, as.numeric)
+  X_inter <- column_multiply(X_num, neighinfo$neighX)
+  X_neighX <- X_inter[[1]]
+  mixed_info <- cbind(1, X_num, neighinfo$neighX, X_neighX)
+  len_m <- dim(mixed_info)[2]
+  
+  x0_num <- as.numeric(x0[X_type == "N"])
+  
+  X_inter_num <- c()
+  for (j in 1:length(x0_num)) {
+    X_inter_num <- c(X_inter_num,
+                     apply(as.array(x1_num), 1, function(x) x*x0_num[j]))}
+  X_mean <- c(1, x0_num, x1_num, X_inter_num)
+  
+  ## categorical indicator ##
+  if (sum(X_type == "C") > 0){
+    cat_ind <- apply(X_cat, 1, function(x) ifelse(prod(x == x0_cat), 1, NA)) 
+  }else{
+    cat_ind <- rep(1,dim(X_cat)[1])} 
+  
+  ## group coefficients for marginal / non-marginal (a = 0 / 1 separately) ##
+  fff <- ifelse(marginal == TRUE, 'marginal_outcomes', 'outcomes')
+  ind_est_df <- point_estimates[[fff]]$weighted_ind
+  reg_coef <- point_estimates[[fff]]$overall_coefM
+  weights_ind <- point_estimates[[fff]]$weights_ind  
+  
+  if(effect_type == 'contrast'){ 
+    X_reg <- as.matrix(cbind(rep(1,dim(X)[1]), X_num))
+    trt_ind_t1 <- ifelse((A == t1), 1, NA)
+    trt_ind_t2 <- ifelse((A == t2), 1, NA)
+    if(marginal == TRUE){
+      #
+    } else {
+      psi_group1 = var_para_mixed(reg_coef, a1, t1, mixed_info, H, weights_ind, A, G, cat_ind)[[1]]
+      psid_mat_grp1 = var_para_mixed(reg_coef, a1, t1, mixed_info, H, weights_ind, A, G, cat_ind)[[2]]
+      
+      psi_group2 = var_para_mixed(reg_coef, a2, t2, mixed_info, H, weights_ind, A, G, cat_ind)[[1]]
+      psid_mat_grp2 = var_para_mixed(reg_coef, a2, t2, mixed_info, H, weights_ind, A, G, cat_ind)[[2]]
+      
+      var_mat = sig_effect_mixed(psi_group1, psid_mat_grp1, psi_group2, psid_mat_grp2, len_m)
+      ave <- var_effect_mixed(G, A, var_mat, cat_ind, mixed_info, X_mean = X_mean)
+      
+      X_fit1 = var_para_mixed(reg_coef, a1, t1, mixed_info, H, weights_ind, A, G, cat_ind)[[3]] 
+      X_fit2 = var_para_mixed(reg_coef, a2, t2, mixed_info, H, weights_ind, A, G, cat_ind)[[3]]
+      X_data = as.data.frame(cbind(G, X_fit1, X_fit2))
+      X_group = aggregate(X_data[,-1], list(X_data$G), FUN=mean, na.rm = TRUE) # mean of residual for each group i
+      pe <- sum(X_mean * reg_coef[,a1,t1]) - sum(X_mean * reg_coef[,a2,t2])
+    }
+  } else {
+    # default is control-outcome
+    if(marginal == TRUE){
+      #
+    } else {
+      psi_group = var_para_mixed(reg_coef, a1, t1, mixed_info, H, weights_ind, A, G, cat_ind)[[1]]
+      psid_mat_grp = var_para_mixed(reg_coef, a1, t1, mixed_info, H, weights_ind, A, G, cat_ind)[[2]]
+      var_mat = sig_outcome_mixed(psi_group, psid_mat_grp)
+      ave <- var_outcome_mixed(G, A, var_mat, cat_ind, mixed_info, X_mean = X_mean)
+      
+      X_fit = var_para_mixed(reg_coef, a1, t1, mixed_info, H, weights_ind, A, G, cat_ind)[[3]]
+      X_data = as.data.frame(cbind(G, X_fit))
+      X_group = aggregate(X_data$X_fit, list(X_data$G), FUN=mean, na.rm = TRUE) # mean of residual for each group i
+      pe <- sum(X_mean * reg_coef[,a1,t1])
+    }
+  }
+  
+  ## Confidence Intervals ##
+  qq <- qnorm(conf.level + (1 - conf.level)/2)
+  me <- qq * sqrt(ave)
+  
+  ## Prepare Output ##
+  pe <- pe * rescale.factor
+  
+  if(print == TRUE){
+    toprint <- paste0('Estimate: ', round(pe, 2), ' ',
+                      conf.level*100, '% CI: (', 
+                      round(pe - me, 2), ', ', round(pe + me, 2), ')' )
+    print(toprint)
+  }
+  
+  out <- data.frame(estimate = pe,
+                    std.error = sqrt(ave), 
+                    conf.low = pe - me, conf.high = pe + me)
+  return(out)
+}
+

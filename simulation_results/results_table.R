@@ -86,3 +86,39 @@ result_stats(inf_mixed2, 14.7)
 mixed_mixed = readRDS("table_results/mixed_mixed.RDS")
 bias = -mean(mixed_mixed)-26.7
 round(bias,3)
+
+# first row is influencer effect, second is spillover
+spillover_table = rbind(rep(c("p.est", "bias", "MC SE", "analytical SE", "CP"),3),
+                        c(rep(NA, 5), rep(NA,5), result_stats(spillover_plain, 13)),
+                        c(result_stats(spillover_binary3_1var, 8.5), 
+                          result_stats(spillover_cont2_1var, 8.5),
+                          result_stats(spillover_mixed2, 13)),
+                        c(result_stats(spillover_binary1_1var, 12),
+                          result_stats(spillover_cont1_1var, 5.7),
+                          result_stats(spillover_mixed1, 14.7)))
+
+inf_table = rbind(rep(c("p.est", "bias", "MC SE", "analytical SE", "CP"),3),
+                  c(rep(NA, 5), rep(NA,5), result_stats(inf_plain, 13)),
+                  c(result_stats(inf_binary3_1var, 12),
+                    result_stats(inf_cont2_1var, 5.7),
+                    result_stats(inf_mixed2, 14.7)),
+                  c(result_stats(inf_binary1_1var, 8.5),
+                    result_stats(inf_cont1_1var, 8.5),
+                    result_stats(inf_mixed1, 13)))
+
+#colnames(spillover_table) <- rep(c("p.est", "bias", "MC SE", "analytical SE", "CP"),3)
+rownames(spillover_table) <- c(" ", "Avg", "Het Infl", "Het Sp")
+
+#colnames(inf_table) <- rep(c("p.est", "bias", "MC SE", "analytical SE", "CP"),3)
+rownames(inf_table) <- c(" ", "Avg", "Het Infl", "Het Sp")
+
+colnames(spillover_table) <- c("binary", rep(" ", 4),
+                               "continuous", rep(" ", 4),
+                               "mixed", rep(" ", 4))
+colnames(inf_table) <- c("binary", rep(" ", 4),
+                               "continuous", rep(" ", 4),
+                               "mixed", rep(" ", 4))
+
+print(spillover_table, quote=FALSE)
+print(inf_table, quote=FALSE)
+
