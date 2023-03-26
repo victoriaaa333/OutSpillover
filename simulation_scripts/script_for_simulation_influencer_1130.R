@@ -374,8 +374,8 @@ for (i in 1:20) {
   a = 2; b = 5; c = 7; d = 9
   Y = apply(cbind(df$A, df$treated_neigh, df$interaction1, df$interaction2), 1, #X_num,
             function(x)  rnorm(1, mean = a*x[1] + b*x[2] + c*x[3] + d*x[4], sd = 1))  
-  H = h_neighborhood(graph, Y, 1) 
-  H_M =  h_neighborhood(graph, Y, 1, X_cat, c("M")) 
+  H = h_neighborhood(graph, Y, 1) # avg of outcomes
+  H_M =  h_neighborhood(graph, Y, 1, X_cat, c("M")) # avg of outcomes of male neighbors
   df$Y = Y
   df$H = H
   df$H_M = H_M
