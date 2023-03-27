@@ -128,7 +128,7 @@ result_c <- foreach(i = 1:500, .combine="c") %dorng% {
  output = list(list(nocon = a, inf = b, sp = c, mixed = d))
 }
 
-saveRDS(result_c, "cluster_results/inf_model_cat_var.RDS")
+saveRDS(result_c, "cluster_results/mixed_model_cat_var.RDS")
 
 ### 2. numerical variable ###
 result_n <- foreach(i = 1:500, .combine="c") %dorng% {
