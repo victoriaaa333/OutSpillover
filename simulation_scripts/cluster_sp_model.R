@@ -73,11 +73,6 @@ result_c <- foreach(i = 1:500, .combine="c") %dorng% {
   df$H = H
   df$H_M = H_M
   
-  # 2.1 neighinfo
-  neighX = h_neighcov(graph, 1, X, X_type, x1) # average of X for unit j's 1-order neighbor
-  neighinfo = list(neighX)
-  names(neighinfo) <- c('neighX')
-  
   ##########
   # 3. calculate the point estimates and the variances (bootstrapped and analytical)
   allocations = list(c(0.5,denominator_alphas))
@@ -86,39 +81,33 @@ result_c <- foreach(i = 1:500, .combine="c") %dorng% {
   point_estimates <- ipw_point_estimates_mixed_test4(H, G, A, w.matrix, 
                                                      Con_type = "No-con")
   
-  point_estimates_n <- ipw_point_estimates_mixed_test4(H_M, G, A, w.matrix, 
-                                                       neighinfo = neighinfo, x1 = x1, 
-                                                       X_type = X_type,  Con_type = "neigh")
-  
-  point_estimates_g <- ipw_point_estimates_mixed_test4(H, G, A, w.matrix, 
+  point_estimates_g <- ipw_point_estimates_mixed_test5(H, G, A, w.matrix, 
                                                        X = X, x0 = x0, 
                                                        X_type = X_type, Con_type = "group")
   
-  point_estimates_m <- ipw_point_estimates_mixed_test4(H_M, G, A, w.matrix, 
-                                                     X = X, x0 = x0, neighinfo = neighinfo, x1= x1,
-                                                     X_type = X_type, Con_type = "mixed")
+  point_estimates_n <- ipw_point_estimates_mixed_test4(H_M, G, A, w.matrix, Con_type = "No-con")
+  
+  point_estimates_m <- ipw_point_estimates_mixed_test5(H_M, G, A, w.matrix, 
+                                                       X = X, x0 = x0,
+                                                       X_type = X_type, Con_type = "group")
   
   a = ipw_m_variance(w.matrix, point_estimates, effect_type ='contrast',
                      marginal = FALSE, allocation1 = allocations[1], 
                      allocation2 = allocations[1])  
   
-  b = ipw_regression_variance(H, w.matrix, point_estimates_g, A, 
-                              effect_type ='contrast',marginal = FALSE, 
-                              allocation1 = allocations[1], allocation2 = allocations[1],
-                              X = X, x0 = x0, X_type = X_type)
+  b = ipw_m_variance_groups(w.matrix, point_estimates_g, effect_type ='contrast',
+                            marginal = FALSE, allocation1 = allocations[1], 
+                            allocation2 = allocations[1])
   
-  c = ipw_regression_variance_neigh(H_M, w.matrix, point_estimates_n, A, 
-                                    effect_type ='contrast', marginal = FALSE, 
-                                    allocation1 = allocations[1], allocation2 = allocations[1], 
-                                    neighinfo = neighinfo, x1_num = x1_num)
- 
-  d = ipw_regression_variance_mixed(H_M, w.matrix, point_estimates_m, A, 
-                                    effect_type ='contrast', marginal = FALSE, 
-                                    allocation1 = allocations[1], allocation2 = allocations[1], 
-                                    X = X, X_type = X_type, x0 = x0,
-                                    neighinfo = neighinfo, x1_num = x1_num)
+  c = ipw_m_variance(w.matrix, point_estimates_n, effect_type ='contrast',
+                     marginal = FALSE, allocation1 = allocations[1], 
+                     allocation2 = allocations[1])
   
- output = list(list(nocon = a, inf = b, sp = c, mixed = d))
+  d = ipw_m_variance_groups(w.matrix, point_estimates_m, effect_type ='contrast',
+                            marginal = FALSE, allocation1 = allocations[1], 
+                            allocation2 = allocations[1])
+  
+  output = list(list(nocon = a, inf = b, sp = c, mixed = d))
 }
 
 saveRDS(result_c, "cluster_results/sp_model_cat_var.RDS")
@@ -211,13 +200,13 @@ result_n <- foreach(i = 1:500, .combine="c") %dorng% {
   c = ipw_regression_variance_neigh(H, w.matrix, point_estimates_n, A, 
                                     effect_type ='contrast', marginal = FALSE, 
                                     allocation1 = allocations[1], allocation2 = allocations[1], 
-                                    neighinfo = neighinfo, x1_num = x1_num)
+                                    neighinfo = neighinfo, x1_num = x1)
  
   d = ipw_regression_variance_mixed(H, w.matrix, point_estimates_m, A, 
                                     effect_type ='contrast', marginal = FALSE, 
                                     allocation1 = allocations[1], allocation2 = allocations[1], 
                                     X = X, X_type = X_type, x0 = x0,
-                                    neighinfo = neighinfo, x1_num = x1_num)
+                                    neighinfo = neighinfo, x1_num = x1)
   
  output = list(list(nocon = a, inf = b, sp = c, mixed = d))
 }
