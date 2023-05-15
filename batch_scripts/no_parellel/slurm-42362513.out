@@ -1,0 +1,18 @@
+
+Attaching package: ‘igraph’
+
+The following objects are masked from ‘package:stats’:
+
+    decompose, spectrum
+
+The following object is masked from ‘package:base’:
+
+    union
+
+Loading required package: Matrix
+Loading required package: iterators
+Loading required package: parallel
+[1] "Starting both for influencer"
+Error in { : task 1 failed - "object 'alpha' not found"
+Calls: %do% -> <Anonymous>
+Execution halted

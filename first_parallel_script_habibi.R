@@ -11,7 +11,7 @@ invert_matrix <- function(matrix)
   mat_inv
 }
 
-n_matrices = 10000
+n_matrices = 100
 mat_dim = 10
 
 print("starting non-parallel test")
@@ -30,6 +30,7 @@ print("starting parallel test")
 parallel_time <- system.time(
   {
     foreach(i=1:n_matrices) %dopar% {
+      print(i)
       random_matrix <- matrix(rnorm(mat_dim^2), nrow=mat_dim)
       inv(random_matrix)
       }

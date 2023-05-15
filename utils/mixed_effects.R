@@ -25,7 +25,7 @@ mixed_coef <- function(weights_df, H, G, X, X_type, x0, neighinfo, A, a){
     x0_cat <- x0[X_type == "C"]
     ind_cond <- which(apply(X_cat, 1, function(x) prod(x == x0_cat)) == 1)
   }else{
-    ind_cond <- 1:length(neigh2_treated)}
+    ind_cond <- 1:length(A)}
   
   #### calculate the interactions ####
   # if there's numerical in regression for group avg
