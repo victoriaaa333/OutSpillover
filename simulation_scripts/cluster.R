@@ -112,16 +112,22 @@ for (i in 1:500) {
   cc4 = rbind(cc4, c)
  
 }
-sd(aa4$estimate) # 5.651792
-mean(aa4$std.error)# 4.805365
-mean(aa4$estimate) # -13.62658
-# - (5 + 0.5*7 + 0.5*9) = -13
-saveRDS(aa4, "../kaggle/working/inf_mixed_nocon.RDS")
 
-sd(bb4$estimate) #3.581574
-mean(bb4$std.error) # 2.419118
-mean(bb4$estimate) #-8.896595
-# - (5 + 0.1*7 + 0.2*9) = -7.5
-saveRDS(bb4, "../kaggle/working/inf_mixed_inf.RDS")
+#### results from influencer outcome model w/ mixed vars ####
+# inf_model_mixed_var
+results_nocon = as.data.frame(matrix(unlist(lapply(results, function(l) l$nocon)), nrow = 500, byrow = TRUE))
+colnames(results_nocon) <- colnames(results[[1]]$nocon)
+result_stats(results_nocon, 3 + 1 * 0.5 + 2 * 0.5)
 
-saveRDS(cc4, "../kaggle/working/inf_mixed_sp.RDS")
+results_inf = as.data.frame(matrix(unlist(lapply(results, function(l) l$inf)), nrow = 500, byrow = TRUE))
+colnames(results_inf) <- colnames(results[[1]]$inf)
+result_stats(results_inf, 3 + 1 + 2 * 0.1)
+
+results_sp = as.data.frame(matrix(unlist(lapply(results, function(l) l$sp)), nrow = 500, byrow = TRUE))
+colnames(results_sp) <- colnames(results[[1]]$sp)
+result_stats(results_sp,  3 + 1 * 0.5 + 2 * 0.5)
+
+results_mixed = as.data.frame(matrix(unlist(lapply(results, function(l) l$mixed)), nrow = 500, byrow = TRUE))
+colnames(results_mixed) <- colnames(results[[1]]$mixed)
+result_stats(results_mixed, 1.5 + 1 * 0.75 + 2 * 0.25)
+

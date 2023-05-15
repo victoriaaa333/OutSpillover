@@ -113,3 +113,4 @@ if(model_method == "glmer"){
 results <- list(parameters, X)
 return(results)
 }
+

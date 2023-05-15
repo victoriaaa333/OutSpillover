@@ -29,7 +29,7 @@ wght_calc <- function(parameters,
   dot.names         <- names(dots)
   A                 <- dots[[match.arg('A', dot.names)]]
   #P                 <- dots[[match.arg('P', dot.names)]]
-  #X                 <- dots[[match.arg('X', dot.names)]]
+  X                 <- dots[[match.arg('X', dot.names)]]
   
   numerator_alpha <- allocation[1]
   denominator_alphas <- allocation[-1]

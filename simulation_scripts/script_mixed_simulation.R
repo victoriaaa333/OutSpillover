@@ -131,7 +131,7 @@ X1 <- sample(c("M", "F"), size = length(A), replace = TRUE)
 X2 <- rnorm(length(A),mean = 0.5, sd = 1)
 X3 <- rep("M", length(A))
 
-X <- cbind(X3, )
+X <- cbind(X3 )
 X_type <- c("C", "N")
 x0 <- as.matrix(c("M"))
 x1 <- x0

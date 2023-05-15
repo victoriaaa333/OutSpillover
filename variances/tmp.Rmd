@@ -155,8 +155,8 @@ the weight is pi/pr(A):  ppp    <- prod(numerator_alpha^A * (1-numerator_alpha)^
 dots = list()
 propensity_integrand = logit_integrand
 integrand_args <- get_args(FUN = propensity_integrand, args_list = dots)
-  point_est_args <- get_args(FUN = ipw_point_estimates, args_list = dots)
-  loglihood_args <- get_args(FUN = loglihood_integrand, args_list = dots)
+  #point_est_args <- get_args(FUN = ipw_point_estimates, args_list = dots)
+  #loglihood_args <- get_args(FUN = loglihood_integrand, args_list = dots)
   grad_args      <- get_args(FUN = numDeriv::grad, args_list = dots)
   integrate_args <- get_args(FUN = stats::integrate, args_list = dots)
 
@@ -175,6 +175,29 @@ weightd <- do.call(wght_deriv_array, args = append(weight_args, grad_args))
 
 ```
 
+
+
+# variance 
+
+```{r}
+if(variance_estimation == 'robust'){
+    U_args     <- append(estimate_args, list(weights = weightd))
+    sargs      <- append(append(loglihood_args, grad_args), integrate_args)
+    score_args <- append(sargs, list(integrand = loglihood_integrand,
+                                     X = X, G = G, 
+                                     A = B, # Use B for treatment in scores
+                                     parameters = parameters,
+                                     runSilent  = runSilent #BB 2015-06-23
+                                     ))
+    
+    # set randomization scheme to 1 for scores for logit_integrand
+    score_args$randomization <- 1
+    
+    out$Upart           <- do.call(ipw_point_estimates, args = U_args)
+    out$scores          <- do.call(score_matrix, args = score_args)
+  } 
+
+```
 
 
 
