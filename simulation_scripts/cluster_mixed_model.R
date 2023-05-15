@@ -11,16 +11,20 @@ source("utils/mixed_effects.R")
 
 library(igraph)
 library(lme4)
+
 library(foreach)
-#library(doParallel)
-library(doRNG)
-#registerDoParallel(7)
+# #library(doParallel)
+# library(doRNG)
+# #registerDoParallel(7)
 library(doMC)
 registerDoMC(min(detectCores() - 1, 15))
+# registerDoMC(min(detectCores() - 1, 15))
 
 #### influencer effect model ####
+print("start cat")
+
 ### 1. categorical variable ###
-result_c <- foreach(i = 1:500, .combine="c") %dorng% {
+result_c2 <- foreach(i = 1:500, .combine="c") %dopar% {
 
   ##########
   #1. Generate a graph and dataset (treatments, covariates)
@@ -118,10 +122,11 @@ result_c <- foreach(i = 1:500, .combine="c") %dorng% {
  output = list(list(nocon = a, inf = b, sp = c, mixed = d))
 }
 
-saveRDS(result_c, "cluster_results/mixed_model_cat_var.RDS")
+saveRDS(result_c2, "cluster_results/mixed_model_cat_var(int).RDS")
 
 ### 2. numerical variable ###
-result_n <- foreach(i = 1:500, .combine="c") %dorng% {
+print("Starting numerical")
+result_n2 <- foreach(i = 1:500, .combine="c") %dopar% {
 
   ##########
   #1. Generate a graph and dataset (treatments, covariates)
@@ -222,10 +227,11 @@ result_n <- foreach(i = 1:500, .combine="c") %dorng% {
  output = list(list(nocon = a, inf = b, sp = c, mixed = d))
 }
 
-saveRDS(result_n, "cluster_results/mixed_model_num_var.RDS")
+saveRDS(result_n2, "cluster_results/mixed_model_num_var(int).RDS")
 
 ### 3. both variables ###
-result_b <- foreach(i = 1:500, .combine="c") %dorng% {
+print("Starting both")
+result_b2 <- foreach(i = 1:500, .combine="c") %dopar% {
 
   ##########
   #1. Generate a graph and dataset (treatments, covariates)
@@ -332,4 +338,4 @@ result_b <- foreach(i = 1:500, .combine="c") %dorng% {
  output = list(list(nocon = a, inf = b, sp = c, mixed = d))
 }
 
-saveRDS(result_b, "cluster_results/mixed_model_both_var.RDS")
+saveRDS(result_b2, "cluster_results/mixed_model_both_var(int).RDS")

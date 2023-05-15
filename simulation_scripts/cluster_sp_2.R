@@ -14,24 +14,24 @@ library(lme4)
 library(foreach)
 library(doRNG)
 library(doMC)
-registerDoMC(min(detectCores() - 1, 15))
+registerDoMC(min(detectCores() - 1, 10))
 
-# library("doFuture")
-# registerDoFuture()
+library("doFuture")
+registerDoFuture()
 # plan(multiprocess)
-# print(future::supportsMulticore())
-# if (future::supportsMulticore()) {
-#   future::plan(future::multicore)
-# } else {
-#   future::plan(future::multisession)
-# }
+print(future::supportsMulticore())
+if (future::supportsMulticore()) {
+  future::plan(future::multicore)
+} else {
+  future::plan(future::multisession)
+}
 
 #### spillover effect model ####
 print("start cat")
 
 ### 1. categorical variable ###
-result_c1 <- foreach(i = 1:500, .combine="c") %dorng% {
-
+result_c1 <- foreach(i = 1:500, .combine="c") %dopar% {
+  
   ##########
   #1. Generate a graph and dataset (treatments, covariates)
   graph = make_empty_graph(n = 0, directed = FALSE)
@@ -60,7 +60,7 @@ result_c1 <- foreach(i = 1:500, .combine="c") %dorng% {
   X2 <- sample(c("Y", "N"), size = length(A), replace = TRUE)
   X <- cbind(X1, X2)
   X_type <- c("C", "C")
-
+  
   x0 <- as.matrix(c("M", "Y"))
   x1 <- x0
   
@@ -122,13 +122,13 @@ result_c1 <- foreach(i = 1:500, .combine="c") %dorng% {
   output = list(list(nocon = a, inf = b, sp = c, mixed = d))
 }
 
-saveRDS(result_c1, "cluster_results/sp_model_cat_var(int).RDS")
+saveRDS(result_c1, "cluster_results/sp_model_cat_var.RDS")
 
 ### 2. numerical variable ###
 print("Starting numerical")
 
-result_n1 <- foreach(i = 1:500, .combine="c") %dorng% {
-
+result_n1 <- foreach(i = 1:500, .combine="c") %dopar% {
+  
   ##########
   #1. Generate a graph and dataset (treatments, covariates)
   graph = make_empty_graph(n = 0, directed = FALSE)
@@ -155,13 +155,13 @@ result_n1 <- foreach(i = 1:500, .combine="c") %dorng% {
   G_mat = as.matrix(G)
   X1 <- rnorm(length(A),mean = 0.5, sd = 1)
   X2 <- rnorm(length(A),mean = 0.5, sd = 1)
-
+  
   X <- cbind(X1, X2)
   X_type <- c("N", "N")
   x0 <- as.matrix(c(0.1, 0.2))
   x1 <- x0
   X_num <- apply(as.matrix(X[, X_type == "N"]), 2, as.numeric)
-
+  
   
   df <- cbind.data.frame(A,G,X)
   df$treated_neigh <- h_neighsum(graph, A, 1) 
@@ -199,8 +199,8 @@ result_n1 <- foreach(i = 1:500, .combine="c") %dorng% {
                                                        X_type = X_type, Con_type = "group")
   
   point_estimates_m <- ipw_point_estimates_mixed_test4(H, G, A, w.matrix, 
-                                                     X = X, x0 = x0, neighinfo = neighinfo, x1= x1,
-                                                     X_type = X_type, Con_type = "mixed")
+                                                       X = X, x0 = x0, neighinfo = neighinfo, x1= x1,
+                                                       X_type = X_type, Con_type = "mixed")
   
   a = ipw_m_variance(w.matrix, point_estimates, effect_type ='contrast',
                      marginal = FALSE, allocation1 = allocations[1], 
@@ -215,22 +215,22 @@ result_n1 <- foreach(i = 1:500, .combine="c") %dorng% {
                                     effect_type ='contrast', marginal = FALSE, 
                                     allocation1 = allocations[1], allocation2 = allocations[1], 
                                     neighinfo = neighinfo, x1_num = x1)
- 
+  
   d = ipw_regression_variance_mixed(H, w.matrix, point_estimates_m, A, 
                                     effect_type ='contrast', marginal = FALSE, 
                                     allocation1 = allocations[1], allocation2 = allocations[1], 
                                     X = X, X_type = X_type, x0 = x0,
                                     neighinfo = neighinfo, x1_num = x1)
   
- output = list(list(nocon = a, inf = b, sp = c, mixed = d))
+  output = list(list(nocon = a, inf = b, sp = c, mixed = d))
 }
 
-saveRDS(result_n1, "cluster_results/sp_model_num_var(int).RDS")
+saveRDS(result_n1, "cluster_results/sp_model_num_var.RDS")
 
 ### 3. both variables ###
 print("Starting both")
 
-result_b1 <- foreach(i = 1:500, .combine="c") %dorng% {
+result_b1 <- foreach(i = 1:500, .combine="c") %dopar% {
   
   ##########
   #1. Generate a graph and dataset (treatments, covariates)
@@ -306,8 +306,8 @@ result_b1 <- foreach(i = 1:500, .combine="c") %dorng% {
                                                        X_type = X_type, Con_type = "group")
   
   point_estimates_m <- ipw_point_estimates_mixed_test4(H_M, G, A, w.matrix, 
-                                                     X = X, x0 = x0, neighinfo = neighinfo, x1= x1,
-                                                     X_type = X_type, Con_type = "mixed")
+                                                       X = X, x0 = x0, neighinfo = neighinfo, x1= x1,
+                                                       X_type = X_type, Con_type = "mixed")
   
   a = ipw_m_variance(w.matrix, point_estimates, effect_type ='contrast',
                      marginal = FALSE, allocation1 = allocations[1], 
@@ -322,15 +322,15 @@ result_b1 <- foreach(i = 1:500, .combine="c") %dorng% {
                                     effect_type ='contrast', marginal = FALSE, 
                                     allocation1 = allocations[1], allocation2 = allocations[1], 
                                     neighinfo = neighinfo, x1_num = x1_num)
- 
+  
   d = ipw_regression_variance_mixed(H_M, w.matrix, point_estimates_m, A, 
                                     effect_type ='contrast', marginal = FALSE, 
                                     allocation1 = allocations[1], allocation2 = allocations[1], 
                                     X = X, X_type = X_type, x0 = x0,
                                     neighinfo = neighinfo, x1_num = x1_num)
   
- output = list(list(nocon = a, inf = b, sp = c, mixed = d))
+  output = list(list(nocon = a, inf = b, sp = c, mixed = d))
 }
 
-saveRDS(result_b1, "cluster_results/sp_model_both_var(int).RDS")
+saveRDS(result_b1, "cluster_results/sp_model_both_var.RDS")
 

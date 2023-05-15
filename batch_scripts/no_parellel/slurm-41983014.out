@@ -1,0 +1,18 @@
+
+Attaching package: ‘igraph’
+
+The following objects are masked from ‘package:stats’:
+
+    decompose, spectrum
+
+The following object is masked from ‘package:base’:
+
+    union
+
+Loading required package: Matrix
+Loading required package: iterators
+Loading required package: parallel
+[1] "Starting cat for influencer"
+Error in saveRDS(result_c, "cluster_results/inf_model_cat_var.RDS") : 
+  object 'result_c' not found
+Execution halted

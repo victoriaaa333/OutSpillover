@@ -1,0 +1,23 @@
+
+Attaching package: ‘igraph’
+
+The following objects are masked from ‘package:stats’:
+
+    decompose, spectrum
+
+The following object is masked from ‘package:base’:
+
+    union
+
+Loading required package: Matrix
+Loading required package: foreach
+Loading required package: future
+
+Attaching package: ‘future’
+
+The following objects are masked from ‘package:igraph’:
+
+    %->%, %<-%
+
+[1] "start cat"
+slurmstepd: error: *** JOB 41697083 ON c15n10 CANCELLED AT 2023-03-28T21:48:06 ***

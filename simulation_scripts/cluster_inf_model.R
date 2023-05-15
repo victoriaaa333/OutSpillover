@@ -116,6 +116,7 @@ result_c <- foreach(i = 1:500, .combine="c") %dorng% {
 saveRDS(result_c, "cluster_results/inf_model_cat_var.RDS")
 
 ### 2. numerical variable ###
+print("Starting numerical")
 result_n <- foreach(i = 1:500, .combine="c") %dorng% {
 
   ##########
@@ -216,6 +217,8 @@ result_n <- foreach(i = 1:500, .combine="c") %dorng% {
 saveRDS(result_n, "cluster_results/inf_model_num_var.RDS")
 
 ### 3. both variables ###
+print("Starting both")
+
 result_b <- foreach(i = 1:500, .combine="c") %dorng% {
 
   ##########
