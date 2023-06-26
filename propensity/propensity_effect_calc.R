@@ -1,139 +1,99 @@
-ipw_effect_calc <- function(obj, 
-                            weights, #added parameter, w.matrix
-                            variance_estimation,
-                            alpha1, 
-                            trt.lvl1, 
-                            alpha2 = NA, 
-                            trt.lvl2 = NA,
-                            effect_type,
-                            marginal,
-                            rescale.factor = 1,
-                            conf.level = 0.95,
-                            print = FALSE)
+#-----------------------------------------------------------------------------#
+# IPW Interference estimation 
+#
+# Prepares the object necessary to compute IPW effect estimates with 
+# \code{\link{ipw_effect_calc}}.
+# 
+# @inheritParams interference
+# @param Y outcome vector
+# @param X covariate matrix
+# @param A treatmeent vector
+# @param B 'participation' vector. Defaults to A in the case there is no
+# participation variable.
+# @param G group assignment vector
+# @param parameters a list of fixed_effects and random_effects
+# @param variance_estimation currently supports 'robust' or 'naive'
+# @param ... additional arguments passed to other functions such as 
+# \code{\link{glmer}}, \code{\link{grad}}, and \code{integrand} or \code{likelihood}.
+# @return Returns a list of overall and group-level IPW point estimates 
+# (the output of \code{\link{ipw_point_estimates}}), overall and group-level IPW 
+# point estimates (using the weight derivatives), scores (the output of 
+# \code{\link{score_matrix}}), the computed weight matrix, and the computed 
+# weight derivative array.
+# @export
+#-----------------------------------------------------------------------------#
+
+ipw_interference <- function(parameters,
+                             allocations,
+                             propensity_integrand = logit_integrand,
+                             loglihood_integrand = propensity_integrand,
+                             variance_estimation = "robust",
+                             runSilent = TRUE, 
+                             integrate_allocation = FALSE,
+                             H, X, A, 
+                             B = A, G, 
+                             ...)
 {
-  
-  allocations <- dimnames(obj$weights)[[2]] 
+  dots <- list(...)
   
   ## Warnings ##
-  # Print error if either estimates with alpha1 have been computed 
-  # or a constrast is being estimated when estimates for alpha2
-  # have not been computed
-  if (!(alpha1 %in% allocations) | (effect_type == 'contrast' & !(alpha2 %in% allocations))){
-    stop(paste('At least one of the chosen coverage levels has not been estimated.\n',
-               'Select from the following: \n', 
-               paste(allocations, collapse = ' ')))
-  }
   
-  ## Necessary bits ##
-  N  <- dim(obj$weights)[1] 
-  p  <- dim(obj$scores)[2] 
-  k  <- length(allocations)
-  l  <- dim(obj$point_estimates$outcomes$overall)[2]
-  a1 <- as.character(alpha1)
-  a2 <- as.character(alpha2)
-  t1 <- as.character(trt.lvl1)
-  t2 <- as.character(trt.lvl2)
+  ipw_point_estimates <- ipw_point_estimates_propensity
+  #### Arguments Necessary for Causal Estimation Functions ####
+  integrand_args <- get_args(FUN = propensity_integrand, args_list = dots)
+  point_est_args <- get_args(FUN = ipw_point_estimates, args_list = dots)
+  loglihood_args <- get_args(FUN = loglihood_integrand, args_list = dots)
+  grad_args      <- get_args(FUN = numDeriv::grad, args_list = dots)
+  integrate_args <- get_args(FUN = stats::integrate, args_list = dots)
   
-  fff <- ifelse(marginal == TRUE, 'marginal_outcomes', 'outcomes')
+  weight_args <- append(append(integrand_args, integrate_args),
+                        list(integrand   = propensity_integrand, 
+                             allocations = allocations, 
+                             X = X, A = A, G = G,
+                             parameters = parameters,
+                             runSilent  = runSilent, #BB 2015-06-23
+                             integrate_allocation = integrate_allocation
+                        ))
+  # TODO: check X is correct
   
-  oal  <- obj$point_estimates[[fff]]$overall
-  grp  <- obj$point_estimates[[fff]]$groups
+  #### Prepare output ####
+  out <- list()  
+  
+  ## Compute Weights ##
+  weights <- do.call(wght_matrix, args = weight_args)
   
   if(variance_estimation == 'robust'){
-    Uoal <- obj$Upart[[fff]]$overall 
-    Ugrp <- obj$Upart[[fff]]$groups
-    
-    # Cludgy workaround for case of 1 fixed effect: add dimension to Ugrp array #
-    if(p == 1){
-      names <- dimnames(Ugrp)
-      if(marginal == TRUE){
-        Ugrp <-  array(c(Ugrp[1:N, ], 1, Ugrp[, 1:k]),
-                       dim=c(N, 1, k),
-                       dimnames = list(names[[1]], 'Intercept', names[[2]]))
-      } else {
-        Ugrp <-  array(c(Ugrp[1:N, , ], 1, Ugrp[, 1:k , 1:l]),
-                       dim=c(N, 1, k, l),
-                       dimnames = list(names[[1]], 'Intercept', names[[2]], names[[3]]))
-      }
-    }
+    weightd <- do.call(wght_deriv_array, args = append(weight_args, grad_args)) 
+    out$weightd <- weightd
   }
   
-  if(effect_type == 'contrast'){
-    if(marginal == TRUE){
-      pe          <- oal[a1] - oal[a2]
-      pe_grp_diff <- (grp[ , a1] - oal[a1]) - (grp[, a2] - oal[a2])
-      if(variance_estimation == 'robust'){
-        U_pe_grp    <- Ugrp[ , , a1] - Ugrp[ , , a2]
-      }
-    } else {
-      pe          <- oal[a1, t1] - oal[a2, t2]
-      pe_grp_diff <- (grp[ , a1, t1] - oal[a1, t1]) - (grp[ , a2, t2] - oal[a2, t2])
-      if(variance_estimation == 'robust'){
-        U_pe_grp    <- Ugrp[ , , a1, t1] - Ugrp[ , , a2, t2]
-      }
-    }
-  } else {
-    if(marginal == TRUE){
-      pe          <- oal[a1] 
-      pe_grp_diff <- (grp[ , a1] - oal[a1])
-      if(variance_estimation == 'robust'){
-        U_pe_grp    <- Ugrp[ , , a1]
-      }
-    } else {
-      pe          <- oal[a1, t1] 
-      pe_grp_diff <- (grp[ , a1, t1] - oal[a1, t1])
-      if(variance_estimation == 'robust'){
-        U_pe_grp    <- Ugrp[ , , a1, t1]
-      }
-    }
-  }
+  #### COMPUTE ESTIMATES AND OUTPUT ####
+  # 1. no con, if need conditions then add more args 
+  estimate_args <- append(point_est_args, list(H = H, G = G, A = A))
+  point_args    <- append(estimate_args, list(weights = weights))
   
-  #### VARIANCE ESTIMATION ####
+  
+  #### Calculate output ####
+  out$point_estimates <- do.call(ipw_point_estimates, args = point_args)
+  
   if(variance_estimation == 'robust'){
-    # partial U matrix
-    if(p == 1){
-      U21 <- sum(-U_pe_grp)/N
-    } else {
-      U21 <- (t(as.matrix(apply(-U_pe_grp, 2, sum, na.rm = T))))/N
-    }
+    U_args     <- append(estimate_args, list(weights = weightd))
+    sargs      <- append(append(loglihood_args, grad_args), integrate_args)
+    score_args <- append(sargs, list(integrand = loglihood_integrand,
+                                     X = X, G = G, 
+                                     A = B, # Use B for treatment in scores
+                                     parameters = parameters,
+                                     runSilent  = runSilent #BB 2015-06-23
+    ))
     
-    # V matrix
-    V <- V_matrix(scores = obj$scores, 
-                  point_estimates = obj$point_estimates, 
-                  allocation1 = a1, allocation2 = a2, 
-                  trt.lvl1 = t1, trt.lvl2 = t2, 
-                  effect_type = effect_type, marginal = marginal)
-    
-    vdim <- dim(V)[1]
-    
-    V21 <- V[vdim, 1:(vdim - 1)] # Last row, up to last column
-    V11 <- V[1:(vdim - 1), 1:(vdim - 1)] # up to last row, up to last column
-    V22 <- V[vdim, vdim] # bottom right element
-    
-    ## Sandwich Variance Estimate ##
-    ave <- ((U21 - 2*V21) %*% solve(V11) %*% t(U21) + V22)/N * rescale.factor^2
-  } else if(variance_estimation == 'naive'){
-    ave <- (1/(N^2)) * (sum((pe_grp_diff)^2, na.rm = T)) * rescale.factor^2
-  }
+    # set randomization scheme to 1 for scores for logit_integrand
+    score_args$randomization <- 1
+    out$Upart           <- do.call(ipw_point_estimates, args = U_args)
+    out$scores          <- do.call(score_matrix, args = score_args)
+  } 
   
-  ## Confidence Intervals ##
-  qq <- qnorm(conf.level + (1 - conf.level)/2)
-  me <- qq * sqrt(ave)
+  out$weights <- weights
+  # out$variance_estimation <- variance_estimation #for use in ipw_effect_calc()
   
-  ## Prepare Output ##
-  pe <- pe * rescale.factor
-  
-  if(print == TRUE){
-    toprint <- paste0('Estimate: ', round(pe, 2), ' ',
-                      conf.level*100, '% CI: (', 
-                      round(pe - me, 2), ', ', round(pe + me, 2), ')' )
-    print(toprint)
-  }
-  
-  out <- data.frame(estimate = pe,
-                    std.error = sqrt(ave), 
-                    conf.low = pe - me, 
-                    conf.high = pe + me)
   return(out)
 }
-

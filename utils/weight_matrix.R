@@ -27,10 +27,10 @@ wght_calc <- function(parameters,
   integrand.formals <- names(formals(integrand))
   dots              <- list(...)
   dot.names         <- names(dots)
+  X                 <- dots[[match.arg('X', dot.names)]]
   A                 <- dots[[match.arg('A', dot.names)]]
   #P                 <- dots[[match.arg('P', dot.names)]]
-  X                 <- dots[[match.arg('X', dot.names)]]
-  
+    
   numerator_alpha <- allocation[1]
   denominator_alphas <- allocation[-1]
   
@@ -123,7 +123,7 @@ wght_matrix <- function(integrand,
                   #numerator_alpha = allocation[1],
                   #denominator_alphas = denominator_alphas, 
                   P = P,
-                  A = x[, X_col+1], 
+                  A = as.numeric(x[, X_col+1]), 
                   X = X, #x[,X_col]
                   randomization = randomization,
                   integrate_allocation = integrate_allocation)})
@@ -137,7 +137,7 @@ wght_matrix <- function(integrand,
                 integrand  = integrand, 
                 allocation = allocation,
                 P = P,
-                A = x[, X_col+1], 
+                A = as.numeric(x[, X_col+1]), 
                 X = x[, 1:X_col],
                 randomization = randomization,
                 integrate_allocation = integrate_allocation)})
@@ -215,7 +215,7 @@ wght_deriv_array <- function(parameters,
               wght_deriv_calc(parameters = parameters,
                               integrand  = integrand, 
                               allocation = allocation, 
-                              integrate_allocation = FALSE,
+                              integrate_allocation = integrate_allocation,
                               A = x[, p+1], 
                               X = x[, 1:p], 
                               ...)})

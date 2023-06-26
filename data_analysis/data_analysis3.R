@@ -101,6 +101,7 @@ ipw_m_variance_groups(w.matrix, ps, effect_type ='contrast',
                marginal = FALSE, allocation1 = allocations[1], 
                allocation2 = allocations[1])
 
+
 # numerator alpha = 0.2
 # estimate std.error  conf.low conf.high
 # -1.828399 0.1648542 -2.151507  -1.50529
@@ -139,6 +140,26 @@ ipw_m_variance_groups(w.matrix, point_estimates1, effect_type ='contrast',
                allocation2 = allocations[1])
 # -1.68993 0.1804809 -2.043666 -1.336194
 # -0.1604209 0.06700564 -0.2917496 -0.02909228
+
+# 05/17/23 try propensity score
+df <- as.data.frame(cbind(H, cai$trt, cai$group_no, cai$male, cai$educ_good, cai$age))
+formula <- H | A ~ X1 + X2 + X3 + (1|G) | G
+colnames(df) <- c("H", "A", "G", "X1", "X2", "X3")
+#df <- df[intersect(which(!is.na(df$H)), which(!is.na(df$X2))),]
+df <- df[complete.cases(df),]
+parameters <- unlist(propensity_parameter(formula, df)[1])
+ipw_propensity_variance(parameters,
+                        allocations,
+                        causal_estimation_options =
+                          list(variance_estimation = 'robust'),
+                        integrate_allocation = FALSE,
+                        df$H, as.matrix(cbind(1, df$X1, df$X2)), df$A, df$G,
+                        effect_type = "contrast", #or contrast
+                        propensity_integrand = logit_integrand)
+
+inferference::interference(formula, allocations = c(0.3, 0.5),
+data = df, propensity_integrand = "logit_integrand")
+
 
 ## 2. gender
 X_con = cbind(cai$male)

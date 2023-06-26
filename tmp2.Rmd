@@ -1,0 +1,425 @@
+---
+title: "tmp2"
+author: "Yihan Bao yb254"
+date: "5/15/2023"
+output: html_document
+---
+
+
+```{r}
+setwd("~/Desktop/out-spillover")
+source("utils/weight_matrix.R")
+source("point_estimates/point_estimates.R")
+source("utils/integrand.R")
+source("utils/utils.R")
+source("variances/bootstrap_variance.R")
+source("variances/regression_variance.R")
+source("variances/regression_utils.R")
+source("variances/regression_utils_neigh.R")
+source("utils/mixed_effects.R")
+source("propensity/propensity.R")
+source("propensity/point_estimate_propensity.R")
+source("propensity/propensity_utils.R")
+source("propensity/propensity_effect_calc.R")
+library(igraph)
+library(lme4)
+```
+
+
+```{r}
+# 0.1 first generating the model for spillover effect
+
+##########
+  #1. Generate a graph and dataset (treatments, covariates)
+  graph = make_empty_graph(n = 0, directed = FALSE)
+  repeat{
+    g2 = sample_gnp(10, 0.5, directed = FALSE, loops = FALSE)
+    graph = disjoint_union(graph, g2)
+    if (clusters(graph)$no == 10){
+      break}
+  }
+  G = group_vector(graph) 
+  
+  numerator_alpha = 0.5
+  denominator_alphas = c(0.4,0.6)
+  P = c(0.5,0.5) 
+  P_1 = sample(c(1,2), length(unique(G)), replace = TRUE, prob = P)
+  P_1 = sapply(G, function(x) P_1[x])
+  P_2 = rep(NA, length(P_1))
+  A = rep(NA, length(P_1))
+  for (i in 1:length(P_1)) {
+    P_2[i] = denominator_alphas[P_1[i]]
+    A[i] = sample(c(0,1), 1, prob = c(1-P_2[i],P_2[i]))
+  }
+  
+  G_mat = as.matrix(G)
+  X1 <- sample(c("M", "F"), size = length(A), replace = TRUE)
+  X2 <- rnorm(length(A),mean = 0.5, sd = 1)
+  
+  X <- cbind(X1, X2)
+  X_type <- c("C", "N")
+  x0 <- as.matrix(c("M", 0.1))
+  x1 <- x0
+  x1_num <- c(0.1)
+  
+  X_num <- apply(as.matrix(X[, X_type == "N"]), 2, as.numeric)
+  X_cat <- as.matrix(X[, X_type == "C"])
+  
+  df <- cbind.data.frame(A,G,X)
+  df$treated_neigh <- h_neighsum(graph, A, 1) 
+  df$interaction1 <-  ifelse(X_cat[,1] == "M", 1, 0)  * df$treated_neigh
+  df$interaction2 <- X_num[,1] * df$treated_neigh
+  
+  ##########
+  # 2. Outcome model
+  aa = 2; bb = 5; cc = 7; dd = 9
+  Y = apply(cbind(df$A, df$treated_neigh, df$interaction1, df$interaction2), 1, #X_num,
+            function(x)  rnorm(1, mean = aa*x[1] + bb*x[2] + cc*x[3] + dd*x[4], sd = 1))  
+  H = h_neighborhood(graph, Y, 1) 
+  H_M =  h_neighborhood(graph, Y, 1, X_cat, c("M")) 
+  df$Y = Y
+  df$H = H
+  df$H_M = H_M
+  
+  # 2.1 neighinfo
+  neighX = h_neighcov(graph, 1, X, X_type, x1) # average of X for unit j's 1-order neighbor
+  neighinfo = list(neighX)
+  names(neighinfo) <- c('neighX')
+
+  ##########
+  # 3. calculate the point estimates and the variances (bootstrapped and analytical)
+  allocations = list(c(0.5,denominator_alphas))
+  w.matrix = wght_matrix(plain_integrand, allocations, G, A, P)
+  
+  point_estimates_n <- ipw_point_estimates_mixed_test4(H_M, G, A, w.matrix, 
+                                                       neighinfo = neighinfo,
+                                                       x1 = x1, 
+                                                       X_type = X_type,
+                                                       Con_type = "neigh")
+  point_estimates_g <- ipw_point_estimates_mixed_test4(H, G, A, w.matrix, 
+                                                       X = X, x0 = x0, 
+                                                       X_type = X_type,
+                                                       Con_type = "group")
+  
+```
+
+
+# 1. logit_integrand function and parameter
+```{r}
+formula <- H | A  ~  X2  + (1|G) | G
+
+# theta is from estimating equation here: (from interference.R)
+parameters <- unlist(propensity_parameter(formula, df)[1])
+#b <- c(0, 1)
+X_wint <- cbind(1, X2) # we need intercept here
+
+# PrA is this:
+logit_integrand(b, X_wint, A, parameters, 
+                 allocation = A, randomization = 1) 
+
+allocations = list(c(0.5,denominator_alphas))
+w.matrix <- wght_matrix(integrand =logit_integrand, 
+                        allocations, 
+                        G, A, P,
+                        X = as.matrix(X2), 
+                        parameters = parameters,
+                        randomization = 1,
+                        integrate_allocation = FALSE,
+                        runSilent = TRUE)
+
+weightd <-  wght_deriv_array(parameters = parameters, 
+                             integrand = logit_integrand, 
+                             allocations = allocations, 
+                             G, A, P, 
+                             X = as.matrix(X2),
+                             runSilent = FALSE, 
+                             integrate_allocation = FALSE)
+
+```
+
+```{r}
+dots = list()
+propensity_integrand = logit_integrand
+integrand_args <- get_args(FUN = propensity_integrand, args_list = dots)
+  #point_est_args <- get_args(FUN = ipw_point_estimates, args_list = dots)
+  #loglihood_args <- get_args(FUN = loglihood_integrand, args_list = dots)
+  grad_args      <- get_args(FUN = numDeriv::grad, args_list = dots)
+  integrate_args <- get_args(FUN = stats::integrate, args_list = dots)
+
+  weight_args <- append(append(integrand_args, integrate_args),
+                        list(integrand   = propensity_integrand, 
+                             allocations = allocations, 
+                             X = as.matrix(X2), A = A, G = G,
+                             parameters = parameters,
+                             runSilent  = FALSE, #BB 2015-06-23
+                             integrate_allocation = FALSE
+                             ))
+
+weights <- do.call(wght_matrix, args = weight_args)
+weightd <- do.call(wght_deriv_array, args = append(weight_args, grad_args)) 
+ 
+
+```
+
+```{r}
+propensity_integrand = logit_integrand
+variance_estimation = 'robust'
+integrate_allocation = FALSE
+X = as.matrix(X2)
+ipw_point_estimates <- ipw_point_estimates_propensity
+
+ipw_interference <- function(propensity_integrand,
+                             loglihood_integrand = propensity_integrand,
+                             allocations,
+                             H, X, A, 
+                             B = A, G, 
+                             parameters,
+                             variance_estimation,
+                             runSilent   = TRUE, 
+                             integrate_allocation,
+                             ...)
+{
+  dots <- list(...)
+  
+  ## Warnings ##
+  
+  #### Arguments Necessary for Causal Estimation Functions ####
+  integrand_args <- get_args(FUN = propensity_integrand, args_list = dots)
+  point_est_args <- get_args(FUN = ipw_point_estimates, args_list = dots)
+  loglihood_args <- get_args(FUN = loglihood_integrand, args_list = dots)
+  grad_args      <- get_args(FUN = numDeriv::grad, args_list = dots)
+  integrate_args <- get_args(FUN = stats::integrate, args_list = dots)
+  
+  weight_args <- append(append(integrand_args, integrate_args),
+                        list(integrand   = propensity_integrand, 
+                             allocations = allocations, 
+                             X = X, A = A, G = G,
+                             parameters = parameters,
+                             runSilent  = runSilent, #BB 2015-06-23
+                             integrate_allocation = integrate_allocation
+                             ))
+  # TODO: check X is correct
+  
+  #### Prepare output ####
+  out <- list()  
+
+  ## Compute Weights ##
+  weights <- do.call(wght_matrix, args = weight_args)
+  
+  if(variance_estimation == 'robust'){
+    weightd <- do.call(wght_deriv_array, args = append(weight_args, grad_args)) 
+    out$weightd <- weightd
+  }
+  
+  
+  #### COMPUTE ESTIMATES AND OUTPUT ####
+  # 1. no con, if need conditions then add more args 
+  estimate_args <- append(point_est_args, list(H = H, G = G, A = A))
+  point_args    <- append(estimate_args, list(weights = weights))
+
+
+  #### Calculate output ####
+  out$point_estimates <- do.call(ipw_point_estimates, args = point_args)
+  
+  if(variance_estimation == 'robust'){
+    U_args     <- append(estimate_args, list(weights = weightd))
+    sargs      <- append(append(loglihood_args, grad_args), integrate_args)
+    score_args <- append(sargs, list(integrand = loglihood_integrand,
+                                     X = X, G = G, 
+                                     A = B, # Use B for treatment in scores
+                                     parameters = parameters,
+                                     runSilent  = runSilent #BB 2015-06-23
+                                     ))
+    
+    # set randomization scheme to 1 for scores for logit_integrand
+    score_args$randomization <- 1
+    
+    out$Upart           <- do.call(ipw_point_estimates, args = U_args)
+    out$scores          <- do.call(score_matrix, args = score_args)
+  } 
+
+  out$weights <- weights
+ # out$variance_estimation <- variance_estimation #for use in ipw_effect_calc()
+  
+  return(out)
+}
+```
+
+```{r}
+causal_estimation_options = list(variance_estimation = 'robust')
+out <- list()
+ipw_args <- append(append(dots, causal_estimation_options),
+                       list(propensity_integrand = logit_integrand, 
+                            loglihood_integrand  = propensity_integrand,
+                            allocations          = allocations,
+                            parameters           = unlist(parameters),
+                            runSilent            = TRUE, 
+                            integrate_allocation = integrate_allocation,
+                            H = H, X = X, A = A, B = A, G = G))
+    ipw <- do.call(ipw_interference, args = ipw_args)
+    out <- append(out, ipw)
+
+    #if(runSilent != TRUE){print('Computing effect estimates...')} #BB 2015-06-23
+    
+#grid$alpha1 = allocations[1]
+#grid <- effect_grid(allocations = allocations, treatments  = trt_lvls)
+
+estimate_args <- list(obj = ipw,
+            variance_estimation = causal_estimation_options$variance_estimation,
+            causal_estimation_options$variance_estimation,
+            alpha1      = allocations[1],
+            trt.lvl1    = 1,
+            alpha2      = allocations[1],
+            trt.lvl2    = 0,
+            marginal    = FALSE,
+            effect_type = 'outcome',
+            rescale.factor = 1,
+            conf.level = 0.95,
+            print = FALSE)
+
+                          # alpha1      = grid$alpha1,
+                          # trt.lvl1    = grid$trt1,
+                          # alpha2      = grid$alpha2,
+                          # trt.lvl2    = grid$trt2,
+                          # marginal    = grid$marginal,
+                          # effect_type = grid$effect_type,
+                          # rescale.factor = 1,
+                          # conf.level = 0.95,
+                          # print = FALSE)
+    
+    est <- do.call(ipw_effect_calc, args = estimate_args)
+    
+    
+```
+
+\deqn{\frac{1}{Pr(A|X)}}{1 / integrate(integrand)}
+
+```{r}
+formula <- H | A  ~  X2  + (1|G) | G
+parameters <- unlist(propensity_parameter(formula, df)[1])
+
+ipw_propensity_variance <- function(parameters,
+                                    allocations,
+                                    causal_estimation_options = 
+                                      list(variance_estimation = 'robust'),
+                                    integrate_allocation = FALSE,
+                                    H, X, A, G,
+                                    effect_type = "outcome", #or contrast
+                                    ...){
+  
+  out <- list()
+  dots <- list(...)
+  ipw_args <- append(append(dots, causal_estimation_options),
+                       list(propensity_integrand = logit_integrand, 
+                            loglihood_integrand  = propensity_integrand,
+                            allocations          = allocations,
+                            parameters           = parameters,
+                            runSilent            = TRUE, 
+                            integrate_allocation = integrate_allocation,
+                            H = H, X = X, A = A, B = A, G = G))
+  ipw <- do.call(ipw_interference, args = ipw_args)
+  out <- append(out, ipw)
+  estimate_args <- list(obj = ipw,
+            variance_estimation = causal_estimation_options$variance_estimation,
+            causal_estimation_options$variance_estimation,
+            alpha1      = allocations[1],
+            trt.lvl1    = 1,
+            alpha2      = allocations[1],
+            trt.lvl2    = 0,
+            marginal    = FALSE,
+            effect_type = 'outcome',
+            rescale.factor = 1,
+            conf.level = 0.95,
+            print = FALSE)
+
+  est <- do.call(ipw_effect_calc, args = estimate_args)
+}
+```
+
+```{r}
+propensity_integrand = logit_integrand
+variance_estimation = 'robust'
+integrate_allocation = FALSE
+X = as.matrix(X2)
+ipw_point_estimates <- ipw_point_estimates_propensity
+
+ipw_interference <- function(parameters,
+                             allocations,
+                             propensity_integrand = logit_integrand,
+                             loglihood_integrand = propensity_integrand,
+                             variance_estimation = "robust",
+                             runSilent = TRUE, 
+                             integrate_allocation = FALSE,
+                             H, X, A, 
+                             B = A, G, 
+                             ...)
+{
+  dots <- list(...)
+  
+  ## Warnings ##
+  
+  #### Arguments Necessary for Causal Estimation Functions ####
+  integrand_args <- get_args(FUN = propensity_integrand, args_list = dots)
+  point_est_args <- get_args(FUN = ipw_point_estimates, args_list = dots)
+  loglihood_args <- get_args(FUN = loglihood_integrand, args_list = dots)
+  grad_args      <- get_args(FUN = numDeriv::grad, args_list = dots)
+  integrate_args <- get_args(FUN = stats::integrate, args_list = dots)
+  
+  weight_args <- append(append(integrand_args, integrate_args),
+                        list(integrand   = propensity_integrand, 
+                             allocations = allocations, 
+                             X = X, A = A, G = G,
+                             parameters = parameters,
+                             runSilent  = runSilent, #BB 2015-06-23
+                             integrate_allocation = integrate_allocation
+                             ))
+  # TODO: check X is correct
+  
+  #### Prepare output ####
+  out <- list()  
+
+  ## Compute Weights ##
+  weights <- do.call(wght_matrix, args = weight_args)
+  
+  if(variance_estimation == 'robust'){
+    weightd <- do.call(wght_deriv_array, args = append(weight_args, grad_args)) 
+    out$weightd <- weightd
+  }
+  
+  #### COMPUTE ESTIMATES AND OUTPUT ####
+  # 1. no con, if need conditions then add more args 
+  estimate_args <- append(point_est_args, list(H = H, G = G, A = A))
+  point_args    <- append(estimate_args, list(weights = weights))
+
+
+  #### Calculate output ####
+  out$point_estimates <- do.call(ipw_point_estimates, args = point_args)
+  
+  if(variance_estimation == 'robust'){
+    U_args     <- append(estimate_args, list(weights = weightd))
+    sargs      <- append(append(loglihood_args, grad_args), integrate_args)
+    score_args <- append(sargs, list(integrand = loglihood_integrand,
+                                     X = X, G = G, 
+                                     A = B, # Use B for treatment in scores
+                                     parameters = parameters,
+                                     runSilent  = runSilent #BB 2015-06-23
+                                     ))
+    
+    # set randomization scheme to 1 for scores for logit_integrand
+    score_args$randomization <- 1
+    out$Upart           <- do.call(ipw_point_estimates, args = U_args)
+    out$scores          <- do.call(score_matrix, args = score_args)
+  } 
+
+  out$weights <- weights
+ # out$variance_estimation <- variance_estimation #for use in ipw_effect_calc()
+  
+  return(out)
+}
+```
+
+
+```{r}
+
+```
+

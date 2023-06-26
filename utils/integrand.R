@@ -104,7 +104,7 @@ logit_integrand <- function(b, X, A,
     hha <- apply(hh, 2, function(x) exp(sum(log(x))))
     out <- hha * stats::dnorm(b, mean=0, sd = theta[p + 1])
   }
-  
+  #print(b)
   return(out)
 }
 
