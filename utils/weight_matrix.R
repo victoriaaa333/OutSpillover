@@ -212,8 +212,8 @@ wght_deriv_array <- function(parameters,
   w.list <- lapply(aa, function(allocation){
     w <- by(XX, INDICES = G, simplify = TRUE, 
             FUN = function(x) {
-              wght_deriv_calc(parameters = parameters,
-                              integrand  = integrand, 
+              wght_deriv_calc(integrand  = integrand, 
+                              parameters = parameters,
                               allocation = allocation, 
                               integrate_allocation = integrate_allocation,
                               A = x[, p+1], 

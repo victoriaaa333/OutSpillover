@@ -1,0 +1,261 @@
+---
+title: "second_stage_variance"
+author: "Yihan Bao yb254"
+date: "6/27/2023"
+output: html_document
+---
+
+```{r}
+setwd("~/Desktop/out-spillover")
+source("utils/weight_matrix.R")
+source("utils/integrand.R")
+source("utils/utils.R")
+source("utils/mixed_effects.R")
+
+source("point_estimates/point_estimates.R")
+source("variances/bootstrap_variance.R")
+source("variances/regression_variance.R")
+source("variances/regression_utils.R")
+source("variances/regression_utils_neigh.R")
+
+source("propensity/propensity.R")
+source("propensity/point_estimate_propensity.R")
+source("propensity/propensity_utils.R")
+source("propensity/propensity_effect_calc.R")
+source("point_estimates/point_estimates_utils.R")
+
+library(igraph)
+library(lme4)
+library(boot)
+```
+
+
+```{r}
+##########
+#1. Generate a graph and dataset (treatments, covariates)
+graph = make_empty_graph(n = 0, directed = FALSE)
+noc = 50
+ss = 50
+
+repeat{
+  g2 = sample_gnp(ss, 0.5, directed = FALSE, loops = FALSE)
+  graph = disjoint_union(graph, g2)
+  if (clusters(graph)$no == noc){
+    break}
+}
+G = rep(1:noc, each = ss)
+```
+
+```{r}
+numerator_alpha = 0.5
+denominator_alphas = c(0.4,0.6)
+P = c(0.5,0.5) 
+# Assume random effect ~ N(0, 0.2^2) for each group
+ranef <- rnorm(noc, mean = 0, sd = 0.2)
+group_ef<- rep(ranef, each = ss)
+
+# assign to group 1 (0.4) and group 2 (0.6) randomly
+G1 = sample(c(1,2), length(unique(G)), replace = TRUE, prob = P)
+G1_alpha = denominator_alphas[G1]
+P1 = sapply(G, function(x) G1_alpha[x])
+
+# for each group with assigned treatment probability, the probability of treatment 
+P2 = rep(NA, length(P1))
+A = rep(NA, length(P1))
+# Assume there are 2 covariates
+X1 <- sample(c("M", "F"), size = length(A), replace = TRUE) # M is 1, F is 0
+X1_num <- ifelse(X1 == "M", 1, 0)
+X2 <- rnorm(length(A), mean = 0.5, sd = 1)
+X <- cbind(X1, X2)
+X_type <- c("C", "N")
+
+# A ～ X1 + X2 + P_2[i] + intercept
+for (i in 1:length(P1)) {
+  # Base denominator assigned to each group
+  if(P1[i] == 0.4){
+    P2[i] = inv.logit(X1_num[i] + X2[i] + group_ef[i] -2)
+  }else{
+    P2[i] = inv.logit(X1_num[i] + X2[i] + group_ef[i] -1)
+  }
+}
+
+df <- as.data.frame((cbind(G, P2)))
+df_agg <- cbind(round(aggregate(df$P2, list(df$G), FUN=mean),2), G1_alpha) 
+mean(df_agg$x <= df_agg$G1_alpha) == 1
+```
+
+```{r}
+# generate treatment
+for (i in 1:dim(df)[1]) {
+  df$A[i] <- sample(c(1, 0), size = 1, prob = c(P2[i], 1-P2[i]))
+}
+A <- df$A
+```
+
+```{r}
+x0 <- as.matrix(c("M", 0.1))
+x1 <- x0
+x1_num <- c(0.1)
+
+X_num <- apply(as.matrix(X[, X_type == "N"]), 2, as.numeric)
+X_cat <- as.matrix(X[, X_type == "C"])
+ 
+df$treated_neigh <- h_neighsum(graph, df$A, 1) 
+df$interaction1 <- ifelse(X_cat[,1] == "M", 1, 0)  * df$treated_neigh
+df$interaction2 <- X_num[,1] * df$treated_neigh
+
+##########
+# 2. Outcome model
+aa = 2; bb = 5; cc = 7; dd = 9
+Y = apply(cbind(df$A, df$treated_neigh, df$interaction1, df$interaction2), 1, function(x)  rnorm(1, mean = aa*x[1] + bb*x[2] + cc*x[3] + dd*x[4], sd = 1))  
+H = h_neighborhood(graph, Y, 1) 
+H_M =  h_neighborhood(graph, Y, 1, X_cat, c("M")) 
+df$Y = Y
+df$H = H
+df$H_M = H_M
+
+# 2.1 neighinfo
+neighX = h_neighcov(graph, 1, X, X_type, x1) # average of X for unit j's 1-order neighbor
+neighinfo = list(neighX)
+names(neighinfo) <- c('neighX')
+```
+
+# test on two stage
+```{r}
+#######
+# propensity score
+# 1. estimate parameters for alpha = 0.4 and alpha = 0.6
+df$X1_num <- X1_num
+df$X2 <- X2
+formula <- H | A  ~  X1_num + X2 + (1|G) | G
+df1 <- df[P1 == 0.4,]
+df2 <- df[P1 == 0.6,]
+parameters1 <- unlist(propensity_parameter(formula, df1)[1])
+parameters2 <- unlist(propensity_parameter(formula, df2)[1])
+parameter_single <- unlist(propensity_parameter(formula, df)[1])
+```
+
+```{r}
+# Add intercept tp X
+X <-cbind(1, X1_num, X2)
+allocations = list(c(numerator_alpha, denominator_alphas))
+
+wght_matrix(parameters = parameters1, integrand = logit_integrand, 
+            G = G, A = A, P = P, X = X, allocations = allocations)
+
+wght_matrix(parameters = parameters2, integrand = logit_integrand, 
+            G = G, A = A, P = P, X = X, allocations = allocations)
+
+parameters = c(parameters1, parameters2)
+```
+
+```{r}
+setwd("~/Desktop/out-spillover")
+source("propensity/second_stage_utils.R")
+```
+
+```{r}
+weights <- wght_matrix_second(parameters = parameters, integrand = logit_integrand, G = G, A = A, P = P, X = X, allocations = allocations)
+
+#wght_deriv_array_second(parameters, logit_integrand, G = G, A = A, P = P, X = X, allocations = allocations)
+
+#score_matrix_second(logit_integrand, X, A, G, P, parameters)
+
+```
+
+```{r}
+propensity_integrand = logit_integrand
+objold <- ipw_interference(propensity_integrand = propensity_integrand,
+                 loglihood_integrand = propensity_integrand,
+                 allocations = allocations,
+                 H = H, X = X, A = A, B = A, G = G,
+                 parameters = parameters1,
+                 variance_estimation = "robust",
+                 runSilent   = TRUE,
+                 integrate_allocation = FALSE)
+
+ipw_propensity_variance(parameters1,
+                        allocations,
+                        causal_estimation_options = 
+                          list(variance_estimation = 'robust'),
+                        integrate_allocation = FALSE,
+                        H = H, X = X,
+                        A = A, G = G, effect_type = "contrast")
+
+# inferference::interference(formula, allocations = c(0.5, 0.7),
+# data = df, propensity_integrand = "logit_integrand", causal_estimation_options = 
+#                           list(variance_estimation = 'robust'))
+
+```
+
+
+```{r}
+propensity_integrand = logit_integrand
+P = c(0.5, 0.5)
+
+# TODO: must specify P outside here
+obj <- ipw_interference_second(propensity_integrand,
+                 loglihood_integrand = propensity_integrand,
+                 allocations = allocations,
+                 H = H, X = X, A = A, B = A, G = G, P = P, 
+                 parameters = parameters,
+                 variance_estimation = "robust",
+                 runSilent = TRUE, 
+                 integrate_allocation = FALSE)
+
+ipw_propensity_variance_second(parameters,
+                        allocations,
+                        causal_estimation_options = 
+                          list(variance_estimation = 'robust'),
+                        integrate_allocation = FALSE,
+                        H = H, X = X, P = P,
+                        A = A, G = G, effect_type = "contrast")
+
+```
+
+```{r}
+obj <- obj
+weights <- weights
+variance_estimation <- "robust"
+alpha1 = allocations[1]
+trt.lvl1 = 1
+alpha2 = allocations[1] 
+trt.lvl2 = 0
+effect_type = 'contrast'
+marginal = FALSE
+rescale.factor = 1
+conf.level = 0.95
+print = FALSE
+```
+
+```{r}
+P = 1
+ipw_propensity_variance_second(parameter_single,
+                        allocations,
+                        causal_estimation_options = 
+                          list(variance_estimation = 'robust'),
+                        integrate_allocation = FALSE,
+                        H = H, X = X, P = P,
+                        A = A, G = G, effect_type = "contrast")
+
+# under parameter_single, std is very close to the package
+```
+
+```{r}
+x0 = as.matrix(c(1,1,1))
+X_type = c("N", "N", "N")
+P = 1
+colnames(X) <- c("intercept", "X1_num", "X2")
+ipw_propensity_variance_second(parameter_single,
+                        allocations,
+                        causal_estimation_options = 
+                          list(variance_estimation = 'robust'),
+                        integrate_allocation = FALSE,
+                        H = H, X = X, P = P,
+                        A = A, G = G, effect_type = "contrast", 
+                        x0 = as.matrix(c(1,1,1)),
+                        X_type = c("N", "N", "N"),
+                        Con_type = "group")
+
+```
+

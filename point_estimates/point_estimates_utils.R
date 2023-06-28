@@ -196,15 +196,18 @@ group_means_null_0 <- function(weights_df, H, G, A, a){
 
 ## 1. conditional within groups
 group_coefs_oncont1 <- function(weights_df, H, G, X, X_type, x0, A, a){
-  X_cat <- as.matrix(X[, X_type == "C"])
+  #X_cat <- as.matrix(X[, X_type == "C"])
+  
   X_num <- apply(as.matrix(X[, X_type == "N"]), 2, as.numeric)
   num_names <- colnames(X)[X_type == "N"]
-  x0_cat <- x0[X_type == "C"]
+  
   x0_num <- as.numeric(x0[X_type == "N"])
   
   trt_cond <- which(A == a)
   
   if (sum(X_type == "C") > 0){
+    X_cat <- as.matrix(X[, X_type == "C"])
+    x0_cat <- x0[X_type == "C"]
     ind_cond <- which(apply(X_cat, 1, function(x) prod(x == x0_cat)) == 1)
   }else{
     ind_cond <- 1:dim(X_cat)[1]}

@@ -4,6 +4,11 @@ ipw_point_estimates_propensity <- function(H, G, A, weights, X = NULL, x0 = NULL
                                             neighinfo = NULL, x1= NULL, X_type = NULL,
                                             Con_type = "No-con"){
   ## Necessary Bits ##
+  ## ADD 072823: remove intercept
+  # if (mean(X[,1] == 1) == 1){
+  #   X <- X[,2:dim(X)[2]]
+  # }
+  
   grps     <- dimnames(weights)[[1]]
   alphas   <- dimnames(weights)[[length(dim(weights))]]
   numerator_alphas <- as.numeric(lapply(alphas, function(l) substr(l[1],3,5)))
@@ -32,28 +37,12 @@ ipw_point_estimates_propensity <- function(H, G, A, weights, X = NULL, x0 = NULL
     weights <- array(c(weights, 1), dim=c(N, 1, k))
     predictors <- NULL
   } else {
-    predictors <- dimnames(weights)[[2]]
+    #predictors <- dimnames(weights)[[2]]
+    predictors <- NULL
   }
   
   out <- list()
   
-  ## CALCULATE MARGINAL ESTIMATES ####
-  # Hbar <- group_means(H = H, A = A, G = G,
-  #                     X = X, x0 = x0, a = NA) # average for each groups, marginalized over all treatments.
-  # 
-  # grp_est <- apply(weights, 2:3, function(x) x * Hbar) 
-  # dimnames(grp_est) <- list(grps, predictors, alphas)
-  # 
-  # oa_est <- apply(grp_est, 2:3, mean, na.rm = TRUE)
-  # 
-  # if (k == 1){
-  #   grp_est1 <- as.matrix(drop(grp_est))
-  #   colnames(grp_est1) <- alphas
-  #   out$marginal_outcomes$groups <- grp_est1
-  # }else{
-  #   out$marginal_outcomes$groups <- drop(grp_est)
-  # }
-  # out$marginal_outcomes$overall <- drop(oa_est)
   
   len_g <- ifelse(is.null(X), 1, sum(X_type == "N"))
   len_h <- ifelse(is.null(neighinfo), 1, dim(neighinfo$neighX)[2])
@@ -65,22 +54,22 @@ ipw_point_estimates_propensity <- function(H, G, A, weights, X = NULL, x0 = NULL
   hold_oal <- array(dim = c(p, k, l, q),
                     dimnames = list(predictors, alphas, trt_lvls, qnames))
   
-  # hold_grp_coefM <- array(dim = c(N, (1+len_g+len_h+len_g*len_h)*p, k, l), dimnames = list(grps, predictors, 
-  #                                                                                          alphas, trt_lvls))
-  # hold_grp_coefH <- array(dim = c(N, (1+len_g+len_h+len_g*len_h)*p, k, l), dimnames = list(grps, predictors, 
-  #                                                                                          alphas, trt_lvls))
-  # hold_grp_coefG <- array(dim = c(N, (1+len_g+len_h+len_g*len_h)*p, k, l), dimnames = list(grps, predictors, 
-  #                                                                                          alphas, trt_lvls))
-  # hold_oal_coefM <- array(dim = c((1+len_g+len_h+len_g*len_h)*p, k, l),
-  #                         dimnames = list(predictors, alphas, trt_lvls))
-  # hold_oal_coefH <- array(dim = c((1+len_h)*p, k, l),
-  #                         dimnames = list(predictors, alphas, trt_lvls))
-  # hold_oal_coefG <- array(dim = c((1+len_g)*p, k, l),
-  #                         dimnames = list(predictors, alphas, trt_lvls))
-  
-  # weights_ind <- array(dim = c(length(A), p, k, l), 
-  #                      dimnames = list(NULL, NULL, alphas, trt_lvls))
-  
+  hold_grp_coefM <- array(dim = c(N, (1+len_g+len_h+len_g*len_h)*p, k, l), dimnames = list(grps, predictors,
+                                                                                            alphas, trt_lvls))
+  hold_grp_coefH <- array(dim = c(N, (1+len_h)*p, k, l), dimnames = list(grps, predictors,
+                                                                                            alphas, trt_lvls))
+  hold_grp_coefG <- array(dim = c(N, (1+len_g)*p, k, l), dimnames = list(grps, predictors,
+                                                                                            alphas, trt_lvls))
+  hold_oal_coefM <- array(dim = c((1+len_g+len_h+len_g*len_h)*p, k, l),
+                          dimnames = list(predictors, alphas, trt_lvls))
+  hold_oal_coefH <- array(dim = c((1+len_h)*p, k, l),
+                           dimnames = list(predictors, alphas, trt_lvls))
+  hold_oal_coefG <- array(dim = c((1+len_g)*p, k, l),
+                           dimnames = list(predictors, alphas, trt_lvls))
+
+  weights_ind <- array(dim = c(length(A), p, k, l),
+                       dimnames = list(NULL, NULL, alphas, trt_lvls))
+
   
   for(ll in 1:l){    
     a <- trt_lvls[ll]
@@ -103,13 +92,13 @@ ipw_point_estimates_propensity <- function(H, G, A, weights, X = NULL, x0 = NULL
     
     # Compute estimates
     ind_est <- apply(weights_trt, 2:3, function(x) x * H) 
-    # coef_est_M <- array(dim= c(N, (1+len_g+len_h+len_g*len_h)*p, k))
-    # coef_est_H <- array(dim= c(N, (1+len_h)*p, k))
-    # coef_est_G <- array(dim= c(N, (1+len_g)*p, k))
-    # 
-    # ova_coef_est_M <- array(dim= c(1, (1+len_g+len_h+len_g*len_h)*p, k))
-    # ova_coef_est_H <- array(dim= c(1, (1+len_h)*p, k))
-    # ova_coef_est_G <- array(dim= c(1, (1+len_g)*p, k))
+    coef_est_M <- array(dim= c(N, (1+len_g+len_h+len_g*len_h)*p, k))
+    coef_est_H <- array(dim= c(N, (1+len_h)*p, k))
+    coef_est_G <- array(dim= c(N, (1+len_g)*p, k))
+
+    ova_coef_est_M <- array(dim= c(1, (1+len_g+len_h+len_g*len_h)*p, k))
+    ova_coef_est_H <- array(dim= c(1, (1+len_h)*p, k))
+    ova_coef_est_G <- array(dim= c(1, (1+len_g)*p, k))
     grp_est <- array(dim= c(N, p, k, q))
     grp_est_overall <- array(dim= c(N, p, k, q))
     
@@ -118,50 +107,50 @@ ipw_point_estimates_propensity <- function(H, G, A, weights, X = NULL, x0 = NULL
     for (j in 1:k){
       ind_est_df <- ind_est[ , , j]
       weights_df <- weights_trt[ , , j]
-      if (Con_type == "mixed"){
-        M_list <- mixed_coef(weights_df, H, G, X, X_type, x0, neighinfo, A, a)
-        coef_est_M[ , , j] <- as.matrix(M_list[[1]])
-        ova_coef_est_M[ , , j] <- as.matrix(M_list[[2]])
-      }else if (Con_type == "neigh"){
-        H_list <- neigh_coefs_oncont5(weights_df, H, G, neighinfo, A, a)
-        coef_est_H[ , , j] <- as.matrix(H_list[[1]])
-        ova_coef_est_H[ , , j] <- as.matrix(H_list[[2]])
-      }else if (Con_type == "group"){
-        G_list <- group_coefs_oncont1(weights_df, H, G, X, X_type, x0, A, a)
-        coef_est_G[ , , j] <- as.matrix(G_list[[1]])
-        ova_coef_est_G[ , , j] <- as.matrix(G_list[[2]])
-      }
+      # if (Con_type == "mixed"){
+      #   M_list <- mixed_coef(weights_df, H, G, X, X_type, x0, neighinfo, A, a)
+      #   coef_est_M[ , , j] <- as.matrix(M_list[[1]])
+      #   ova_coef_est_M[ , , j] <- as.matrix(M_list[[2]])
+      # }else if (Con_type == "neigh"){
+      #   H_list <- neigh_coefs_oncont5(weights_df, H, G, neighinfo, A, a)
+      #   coef_est_H[ , , j] <- as.matrix(H_list[[1]])
+      #   ova_coef_est_H[ , , j] <- as.matrix(H_list[[2]])
+      # }else if (Con_type == "group"){
+      #   G_list <- group_coefs_oncont1(weights_df, H, G, X, X_type, x0, A, a)
+      #   coef_est_G[ , , j] <- as.matrix(G_list[[1]])
+      #   ova_coef_est_G[ , , j] <- as.matrix(G_list[[2]])
+      # }
     }
     
     for (j in 1:k) {
       ind_est_df <- as.matrix(ind_est[ , , j])
       weights_est_df <- weights_trt[ , , j]
       
-      if (Con_type == "mixed"){
-        grp_est_overall[ , p, j, ] <- apply(as.matrix(x1), 2, mixed_means_overall,
-                                            overall_coef = ova_coef_est_M[ , , j],
-                                            X_type = X_type, x0 = x0, N = N)
-        grp_est[ , p, j, ] <- apply(as.matrix(x1), 2, mixed_means_group, 
-                                    cond_coefs = coef_est_M[ , , j], 
-                                    X_type = X_type, x0 = x0) 
-      }else if (Con_type == "neigh"){
-        grp_est_overall[ , p, j, ] <- apply(as.matrix(x1), 2, neigh_means_oncont4,
-                                            overall_coef = ova_coef_est_H[ , , j],
-                                            X_type = X_type, N = N)
-        grp_est[ , p, j, ] <- apply(as.matrix(x1), 2, neigh_means_oncont3,
-                                    cond_coefs = coef_est_H[ , , j],
-                                    X_type = X_type)
-      }else if (Con_type == "group"){
-        grp_est_overall[ , p, j, ] <- apply(as.matrix(x0), 2, group_means_oncont1,
-                                            overall_coef = ova_coef_est_G[ , , j],
-                                            X_type = X_type, N = N)
-        grp_est[ , p, j, ] <- apply(as.matrix(x0), 2, group_means_oncont2,
-                                    cond_coefs = coef_est_G[ , , j],
-                                    X_type = X_type)
-      }else{
+      # if (Con_type == "mixed"){
+      #   grp_est_overall[ , p, j, ] <- apply(as.matrix(x1), 2, mixed_means_overall,
+      #                                       overall_coef = ova_coef_est_M[ , , j],
+      #                                       X_type = X_type, x0 = x0, N = N)
+      #   grp_est[ , p, j, ] <- apply(as.matrix(x1), 2, mixed_means_group, 
+      #                               cond_coefs = coef_est_M[ , , j], 
+      #                               X_type = X_type, x0 = x0) 
+      # }else if (Con_type == "neigh"){
+      #   grp_est_overall[ , p, j, ] <- apply(as.matrix(x1), 2, neigh_means_oncont4,
+      #                                       overall_coef = ova_coef_est_H[ , , j],
+      #                                       X_type = X_type, N = N)
+      #   grp_est[ , p, j, ] <- apply(as.matrix(x1), 2, neigh_means_oncont3,
+      #                               cond_coefs = coef_est_H[ , , j],
+      #                               X_type = X_type)
+      # }else if (Con_type == "group"){
+      #   grp_est_overall[ , p, j, ] <- apply(as.matrix(x0), 2, group_means_oncont1,
+      #                                       overall_coef = ova_coef_est_G[ , , j],
+      #                                       X_type = X_type, N = N)
+      #   grp_est[ , p, j, ] <- apply(as.matrix(x0), 2, group_means_oncont2,
+      #                               cond_coefs = coef_est_G[ , , j],
+      #                               X_type = X_type)
+      # }else{
         grp_est_overall[, , j, ] <- apply(ind_est_df, 2, group_means_propensity, A, G, a)
         grp_est[, , j, ] <- apply(ind_est_df, 2, group_means_propensity, A, G, a)
-      }
+      #}
     }
     
     oal_est <- apply(grp_est_overall, 2:4, mean, na.rm = TRUE)
@@ -169,13 +158,13 @@ ipw_point_estimates_propensity <- function(H, G, A, weights, X = NULL, x0 = NULL
     hold_grp[ , , , ll, ] <- grp_est
     hold_oal[ , , ll, ]   <- oal_est
     
-    # hold_grp_coefM[ , , , ll] <- coef_est_M
-    # hold_grp_coefH[ , , , ll] <- coef_est_H
-    # hold_grp_coefG[ , , , ll] <- coef_est_G
-    # 
-    # hold_oal_coefM[ , , ll] <- ova_coef_est_M
-    # hold_oal_coefH[ , , ll] <- ova_coef_est_H
-    # hold_oal_coefG[ , , ll] <- ova_coef_est_G
+    hold_grp_coefM[ , , , ll] <- coef_est_M
+    hold_grp_coefH[ , , , ll] <- coef_est_H
+    hold_grp_coefG[ , , , ll] <- coef_est_G
+
+    hold_oal_coefM[ , , ll] <- ova_coef_est_M
+    hold_oal_coefH[ , , ll] <- ova_coef_est_H
+    hold_oal_coefG[ , , ll] <- ova_coef_est_G
   }
   
   if (k == 1){
@@ -185,32 +174,32 @@ ipw_point_estimates_propensity <- function(H, G, A, weights, X = NULL, x0 = NULL
     out$outcomes$overall <- array(hold_oal, dim = c(p, k, l, q),
                                   dimnames = list(predictors, alphas, trt_lvls, qnames))
     
-    # out$outcomes$grp_coefM <- array(hold_grp_coefM, dim = c(N, (1+len_h+len_g+len_h*len_g)*p, k, l), 
-    #                                 dimnames = list(grps, predictors, alphas, trt_lvls))
-    # out$outcomes$grp_coefH <- array(hold_grp_coefH, dim = c(N, (1+len_h)*p, k, l), 
-    #                                 dimnames = list(grps, predictors, alphas, trt_lvls))
-    # out$outcomes$grp_coefG <- array(hold_grp_coefG, dim = c(N, (1+len_g)*p, k, l),
-    #                                 dimnames = list(grps, predictors, alphas, trt_lvls))
-    # 
-    # out$outcomes$overall_coefM <- array(hold_oal_coefM, dim = c((1+len_h+len_g+len_h*len_g)*p, k, l),
-    #                                     dimnames = list(predictors, alphas, trt_lvls))
-    # out$outcomes$overall_coefH <- array(hold_oal_coefH, dim = c((1+len_h)*p, k, l),
-    #                                     dimnames = list(predictors, alphas, trt_lvls))
-    # out$outcomes$overall_coefG <- array(hold_oal_coefG, dim = c((1+len_g)*p, k, l),
-    #                                     dimnames = list(predictors, alphas, trt_lvls))
-    
-    # out$outcomes$weights_ind <- array(weights_ind, dim = c(length(A), p, k, l), 
-    #                                   dimnames = list(NULL, NULL, alphas, trt_lvls))
+    out$outcomes$grp_coefM <- array(hold_grp_coefM, dim = c(N, (1+len_h+len_g+len_h*len_g)*p, k, l),
+                                    dimnames = list(grps, predictors, alphas, trt_lvls))
+    out$outcomes$grp_coefH <- array(hold_grp_coefH, dim = c(N, (1+len_h)*p, k, l),
+                                    dimnames = list(grps, predictors, alphas, trt_lvls))
+    out$outcomes$grp_coefG <- array(hold_grp_coefG, dim = c(N, (1+len_g)*p, k, l),
+                                    dimnames = list(grps, predictors, alphas, trt_lvls))
+
+    out$outcomes$overall_coefM <- array(hold_oal_coefM, dim = c((1+len_h+len_g+len_h*len_g)*p, k, l),
+                                        dimnames = list(predictors, alphas, trt_lvls))
+    out$outcomes$overall_coefH <- array(hold_oal_coefH, dim = c((1+len_h)*p, k, l),
+                                        dimnames = list(predictors, alphas, trt_lvls))
+    out$outcomes$overall_coefG <- array(hold_oal_coefG, dim = c((1+len_g)*p, k, l),
+                                        dimnames = list(predictors, alphas, trt_lvls))
+
+    out$outcomes$weights_ind <- array(weights_ind, dim = c(length(A), p, k, l),
+                                      dimnames = list(NULL, NULL, alphas, trt_lvls))
   }else{
     out$outcomes <- list(groups = drop(hold_grp), 
                          overall = drop(hold_oal),
-                         # grp_coefM = drop(hold_grp_coefM),
-                         # grp_coefH = drop(hold_grp_coefH),
-                         # grp_coefG = drop(hold_grp_coefG),
-                         # overall_coefM = drop(hold_oal_coefM),
-                         # overall_coefH = drop(hold_oal_coefH),
-                         # overall_coefG = drop(hold_oal_coefG),
-                         #weights_ind = weights_ind
+                         grp_coefM = drop(hold_grp_coefM),
+                         grp_coefH = drop(hold_grp_coefH),
+                         grp_coefG = drop(hold_grp_coefG),
+                         overall_coefM = drop(hold_oal_coefM),
+                         overall_coefH = drop(hold_oal_coefH),
+                         overall_coefG = drop(hold_oal_coefG),
+                         weights_ind = weights_ind
                          )
   }
   

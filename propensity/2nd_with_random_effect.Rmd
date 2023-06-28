@@ -44,6 +44,7 @@ repeat{
 G = rep(1:noc, each = ss)
 ```
 
+
 ```{r}
 numerator_alpha = 0.5
 denominator_alphas = c(0.4,0.6)

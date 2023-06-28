@@ -692,6 +692,10 @@ ipw_point_estimates_mixed_test4 <- function(H, G, A, weights, X = NULL, x0 = NUL
                                             neighinfo = NULL, x1= NULL, X_type = NULL,
                                             Con_type = "No-con"){
   ## Necessary Bits ##
+  if (mean(X[,1] == 1) == 1){
+    X <- X[,2:dim(X)[2]]
+  }
+  
   grps     <- dimnames(weights)[[1]]
   alphas   <- dimnames(weights)[[length(dim(weights))]]
   numerator_alphas <- as.numeric(lapply(alphas, function(l) substr(l[1],3,5)))
