@@ -244,9 +244,9 @@ ipw_propensity_variance_second(parameter_single,
 ```{r}
 x0 = as.matrix(c(1,1,1))
 X_type = c("N", "N", "N")
-P = 1
+P = c(0.5, 0.5)
 colnames(X) <- c("intercept", "X1_num", "X2")
-ipw_propensity_variance_second(parameter_single,
+ipw_propensity_variance_second(parameters,
                         allocations,
                         causal_estimation_options = 
                           list(variance_estimation = 'robust'),
