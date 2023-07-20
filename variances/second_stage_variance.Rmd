@@ -140,11 +140,11 @@ parameter_single <- unlist(propensity_parameter(formula, df)[1])
 X <-cbind(1, X1_num, X2)
 allocations = list(c(numerator_alpha, denominator_alphas))
 
-wght_matrix(parameters = parameters1, integrand = logit_integrand, 
-            G = G, A = A, P = P, X = X, allocations = allocations)
-
-wght_matrix(parameters = parameters2, integrand = logit_integrand, 
-            G = G, A = A, P = P, X = X, allocations = allocations)
+# wght_matrix(parameters = parameters1, integrand = logit_integrand, 
+#             G = G, A = A, P = P, X = X, allocations = allocations)
+# 
+# wght_matrix(parameters = parameters2, integrand = logit_integrand, 
+#             G = G, A = A, P = P, X = X, allocations = allocations)
 
 parameters = c(parameters1, parameters2)
 ```
@@ -155,11 +155,13 @@ source("propensity/second_stage_utils.R")
 ```
 
 ```{r}
-weights <- wght_matrix_second(parameters = parameters, integrand = logit_integrand, G = G, A = A, P = P, X = X, allocations = allocations)
+weights <- wght_matrix_second(parameters = parameters, integrand = logit_integrand_second, G = G, A = A, P = P, propensity_X = X, allocations = allocations)
 
-#wght_deriv_array_second(parameters, logit_integrand, G = G, A = A, P = P, X = X, allocations = allocations)
+# wght_matrix_second(parameters = parameters, integrand = logit_integrand, G = G, A = A, P = P, X = X, allocations = allocations)
 
-#score_matrix_second(logit_integrand, X, A, G, P, parameters)
+wght_deriv_array_second(parameters, logit_integrand_second, G = G, A = A, P = P, propensity_X = X, allocations = allocations)
+
+score_matrix_second(logit_integrand_second, X, A, G, P, parameters, first_assignments)
 
 ```
 
@@ -188,29 +190,40 @@ ipw_propensity_variance(parameters1,
 
 ```
 
+```{r}
+first_assignments = G1 - 1
+```
+
 
 ```{r}
-propensity_integrand = logit_integrand
+setwd("~/Desktop/out-spillover")
+source("propensity/second_stage_utils.R")
+
+propensity_integrand = logit_integrand_second
 P = c(0.5, 0.5)
 
 # TODO: must specify P outside here
 obj <- ipw_interference_second(propensity_integrand,
                  loglihood_integrand = propensity_integrand,
                  allocations = allocations,
-                 H = H, X = X, A = A, B = A, G = G, P = P, 
+                 H = H, propensity_X = X, A = A, B = A, G = G, P = P, 
                  parameters = parameters,
+                 first_assignments = first_assignments,
                  variance_estimation = "robust",
                  runSilent = TRUE, 
                  integrate_allocation = FALSE)
 
-ipw_propensity_variance_second(parameters,
-                        allocations,
-                        causal_estimation_options = 
+ipw_propensity_variance_second(parameters = parameters,
+                        allocations = allocations,
+                        H = H, P = P,
+                        A = A, G = G, first_assignments = first_assignments,
+                        propensity_X = X,
+                        causal_estimation_options =
                           list(variance_estimation = 'robust'),
                         integrate_allocation = FALSE,
-                        H = H, X = X, P = P,
-                        A = A, G = G, effect_type = "contrast")
+                        effect_type = "contrast")
 
+# why add X = X doesn't work??
 ```
 
 ```{r}
@@ -229,33 +242,68 @@ print = FALSE
 ```
 
 ```{r}
-P = 1
-ipw_propensity_variance_second(parameter_single,
-                        allocations,
+# first_assignment = 0 if P = 1
+ipw_propensity_variance_second(parameters = parameter_single,
+                        allocations = allocations,
+                        H = H, propensity_X = X, P = c(1),
+                        A = A, G = G, 
+                        first_assignments = rep(0, length(unique(G))),
                         causal_estimation_options = 
                           list(variance_estimation = 'robust'),
                         integrate_allocation = FALSE,
-                        H = H, X = X, P = P,
-                        A = A, G = G, effect_type = "contrast")
+                        effect_type = "contrast")
 
 # under parameter_single, std is very close to the package
 ```
 
 ```{r}
-x0 = as.matrix(c(1,1,1))
-X_type = c("N", "N", "N")
-P = c(0.5, 0.5)
 colnames(X) <- c("intercept", "X1_num", "X2")
-ipw_propensity_variance_second(parameters,
-                        allocations,
+cond_X <- cbind(X1, X2)
+
+ipw_propensity_variance_second(parameters = parameters,
+                        allocations = allocations,
                         causal_estimation_options = 
                           list(variance_estimation = 'robust'),
                         integrate_allocation = FALSE,
-                        H = H, X = X, P = P,
-                        A = A, G = G, effect_type = "contrast", 
-                        x0 = as.matrix(c(1,1,1)),
-                        X_type = c("N", "N", "N"),
+                        propensity_X = X,
+                        H = H, P = P,
+                        A = A, G = G, 
+                        first_assignments = first_assignments,
+                        effect_type = "contrast", 
+                        X = cond_X,
+                        x0 = as.matrix(c("M",1)),
+                        X_type = c("C", "N"),
                         Con_type = "group")
+
+```
+
+```{r}
+# H_M for conditional on categorical variables
+ipw_propensity_variance_second(parameters = parameters,
+                        allocations = allocations,
+                        causal_estimation_options = 
+                          list(variance_estimation = 'robust'),
+                        integrate_allocation = FALSE,
+                        H = H_M, propensity_X = X, P = P, # X for propensity score
+                        A = A, G = G, 
+                        first_assignments = first_assignments,
+                        effect_type = "contrast", 
+                        neighinfo = neighinfo,
+                        x1 = as.matrix(c(1)),
+                        X_type = c("N"),
+                        Con_type = "neigh")
+```
+
+
+```{r}
+setwd("~/Desktop/out-spillover")
+dat <- readRDS("second_propensity_group.RDS")
+
+sd(dat$estimate)
+mean(dat$std.error)
+```
+
+```{r}
 
 ```
 

@@ -110,16 +110,21 @@ for (i in 1:50) {
   allocations = list(c(numerator_alpha, denominator_alphas))
 
 # error handling
-  try(parameters1 <- unlist(propensity_parameter(formula, df1)[1]), silent = TRUE)
-  try(parameters2 <- unlist(propensity_parameter(formula, df2)[1]), silent = TRUE)
+  try({
+    parameters1 <- unlist(propensity_parameter(formula, df1)[1])
+    parameters2 <- unlist(propensity_parameter(formula, df2)[1])
   
-  parameters = c(parameters1, parameters2)
-  obj <- ipw_propensity_variance_second(parameters,
-                                 allocations,
-                                 causal_estimation_options = 
-                                   list(variance_estimation = 'robust'),
-                                 integrate_allocation = FALSE,
-                                 H = H, X = X, P = P,
-                                 A = A, G = G, effect_type = "contrast")
-  result = rbind(result, obj)
+    parameters = c(parameters1, parameters2)
+    obj <- ipw_propensity_variance_second(parameters,
+                                   allocations,
+                                   causal_estimation_options = 
+                                     list(variance_estimation = 'robust'),
+                                   integrate_allocation = FALSE,
+                                   H = H, X = X, P = P,
+                                   A = A, G = G, effect_type = "contrast")
+    result = rbind(result, obj)
+    }, silent = TRUE)
 }
+
+sd(result$estimate)
+mean(result$std.error)

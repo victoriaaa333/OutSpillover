@@ -17,7 +17,8 @@
 wght_calc_second <- function(parameters,
                       integrand, 
                       allocation,
-                      #P, # first stage probability
+                      P, # first stage probability
+                      propensity_X,
                       randomization = 1,
                       integrate_allocation = FALSE,
                       ...)
@@ -27,13 +28,13 @@ wght_calc_second <- function(parameters,
   integrand.formals <- names(formals(integrand))
   dots              <- list(...)
   dot.names         <- names(dots)
-  X                 <- dots[[match.arg('X', dot.names)]]
+  #propensity_X      <- dots[[match.arg('propensity_X', dot.names)]]
   A                 <- dots[[match.arg('A', dot.names)]]
-  P                 <- dots[[match.arg('P', dot.names)]]
+  #P                 <- dots[[match.arg('P', dot.names)]]
   
   numerator_alpha <- allocation[1]
   denominator_alphas <- allocation[-1]
-  pp <- dim(X)[2] + 1 # length of each parameter if with random effect
+  pp <- dim(propensity_X)[2] + 1 # length of each parameter if with random effect
   
   ## Warnings ##
   if(!'A' %in% dot.names){
@@ -59,7 +60,8 @@ wght_calc_second <- function(parameters,
     
     for (i in 1:length(P)){
       int.args <- append(get_args(stats::integrate, dots),
-                         list(f = integrand, parameters = parameters[(1+pp*(i-1)):(pp*i)], 
+                         list(f = integrand, parameters = parameters[(1+pp*(i-1)):(pp*i)],
+                              propensity_X = propensity_X, 
                               randomization = randomization))
       args <- append(get_args(integrand, dots), int.args)
       
@@ -104,7 +106,7 @@ wght_calc_second <- function(parameters,
 wght_matrix_second <- function(integrand, 
                         allocations, 
                         G, A, P,
-                        X = NULL, 
+                        propensity_X = NULL, 
                         parameters = NULL,
                         randomization = 1,
                         integrate_allocation = FALSE,
@@ -112,7 +114,7 @@ wght_matrix_second <- function(integrand,
                         ...)
 {
   ## Gather necessary bits ##
-  X_col  <- ifelse(is.null(ncol(X)), 0, ncol(X)) 
+  X_col  <- ifelse(is.null(ncol(propensity_X)), 0, ncol(propensity_X)) 
   gg <- sort(unique(G))
   
   ## Compute weight for each group and allocation level ##
@@ -120,23 +122,21 @@ wght_matrix_second <- function(integrand,
   
   if(X_col == 0){
     w.list <- lapply(allocations, function(allocation){
-      w <- by(cbind(X, A), INDICES = G, simplify = FALSE, 
+      w <- by(cbind(propensity_X, A), INDICES = G, simplify = FALSE, 
               FUN = function(x) {
                 wght_calc_second(
                   parameters = parameters,
                   integrand  = integrand, 
                   allocation = allocation,
-                  #numerator_alpha = allocation[1],
-                  #denominator_alphas = denominator_alphas, 
                   P = P,
                   A = as.numeric(x[, X_col+1]), 
-                  X = X, #x[,X_col]
+                  propensity_X = propensity_X, 
                   randomization = randomization,
                   integrate_allocation = integrate_allocation)})
       as.numeric(w)})
   }else{
     w.list <- lapply(allocations, function(allocation){
-      w <- by(cbind(X, A), INDICES = G, simplify = FALSE, 
+      w <- by(cbind(propensity_X, A), INDICES = G, simplify = FALSE, 
               FUN = function(x) {
                 wght_calc_second(
                   parameters = parameters,
@@ -144,7 +144,7 @@ wght_matrix_second <- function(integrand,
                   allocation = allocation,
                   P = P,
                   A = as.numeric(x[, X_col+1]), 
-                  X = x[, 1:X_col],
+                  propensity_X = x[, 1:X_col],
                   randomization = randomization,
                   integrate_allocation = integrate_allocation)})
       as.numeric(w)})
@@ -164,6 +164,7 @@ wght_matrix_second <- function(integrand,
 wght_deriv_calc_second <- function(parameters,
                             integrand,
                             allocation,
+                            propensity_X,
                             integrate_allocation = TRUE,
                             ...)
 {  
@@ -180,7 +181,8 @@ wght_deriv_calc_second <- function(parameters,
                       integrand  = integrand, 
                       allocation = allocation,
                       x          = parameters,
-                      P          = P))
+                      P          = P,
+                      propensity_X = propensity_X))
   
   dervs <- do.call(numDeriv::grad, args = args)
   dervs
@@ -190,15 +192,15 @@ wght_deriv_array_second <- function(parameters,
                              integrand, 
                              allocations, 
                              G, A, P,
-                             X,
+                             propensity_X,
                              integrate_allocation = TRUE,
                              runSilent = TRUE, 
                              ...)
 {
   ## Gather necessary bits ##
   integrand <- match.fun(integrand)
-  XX <- cbind(X, A)
-  p <- ifelse(is.null(ncol(X)), 0, ncol(X)) # number of predictors
+  XX <- cbind(propensity_X, A)
+  p <- ifelse(is.null(ncol(propensity_X)), 0, ncol(propensity_X)) # number of predictors
   pp <- length(parameters)
   
   ## reformatting allocation ##
@@ -223,7 +225,7 @@ wght_deriv_array_second <- function(parameters,
                               allocation = allocation, 
                               integrate_allocation = integrate_allocation,
                               A = x[, p+1], 
-                              X = x[, 1:p], 
+                              propensity_X = x[, 1:p], 
                               P = P,
                               ...)})
     w2 <- matrix(unlist(w, use.names = FALSE), ncol = pp, byrow = TRUE)
@@ -265,8 +267,9 @@ wght_deriv_array_second <- function(parameters,
 ipw_interference_second <- function(propensity_integrand,
                              loglihood_integrand = propensity_integrand,
                              allocations,
-                             H, X, A, B = A, G, P,
+                             H, propensity_X, A, B = A, G, P,
                              parameters,
+                             first_assignments, 
                              variance_estimation,
                              runSilent   = TRUE, 
                              integrate_allocation,
@@ -286,11 +289,13 @@ ipw_interference_second <- function(propensity_integrand,
   weight_args <- append(append(integrand_args, integrate_args),
                         list(integrand   = propensity_integrand, 
                              allocations = allocations, 
-                             X = X, A = A, G = G, P = P,
+                             propensity_X = propensity_X, A = A, G = G, P = P,
                              parameters = parameters,
                              runSilent  = runSilent, #BB 2015-06-23
                              integrate_allocation = integrate_allocation
                         ))
+  #score_args <- append(weight_args, list(first_assignments = first_assignments))
+  
   #### Prepare output ####
   out <- list()  
   
@@ -298,31 +303,35 @@ ipw_interference_second <- function(propensity_integrand,
   weights <- do.call(wght_matrix_second, args = weight_args)
   
   if(variance_estimation == 'robust'){
-    weightd <- do.call(wght_deriv_array_second, args = append(weight_args, grad_args)) 
+    weightd <- do.call(wght_deriv_array_second, args = append(weight_args, grad_args))
     out$weightd <- weightd
-    
-    U11 <- do.call(score_matrix_deriv, args = append(weight_args, grad_args))
-    out$U11 <- U11
-  }
+    }
+  #   U11 <- do.call(score_matrix_deriv, args = append(score_args, grad_args))
+  #   out$U11 <- U11
+  #   }
   
   
   #### COMPUTE ESTIMATES AND OUTPUT ####
-  estimate_args <- append(point_est_args, list(H = H, G = G, A = A, X = X))#, list(Y = Y, G = G, A = A)
+  estimate_args <- append(point_est_args, list(H = H, G = G, A = A))#, list(Y = Y, G = G, A = A)
   point_args    <- append(estimate_args, list(weights = weights))
   
   
   #### Calculate output ####
-  out$point_estimates <- do.call(ipw_point_estimates_propensity, args = point_args)
+  out$point_estimates <- do.call(ipw_point_estimates_mixed_test4, args = point_args)
   
   if(variance_estimation == 'robust'){
     U_args     <- append(estimate_args, list(weights = weightd))
     sargs      <- append(append(loglihood_args, grad_args), integrate_args)
     score_args <- append(sargs, list(integrand = loglihood_integrand,
-                                     X = X, G = G, P = P,
+                                     propensity_X = propensity_X, G = G, P = P,
                                      A = B, # Use B for treatment in scores
                                      parameters = parameters,
+                                     first_assignments = first_assignments,
                                      runSilent  = runSilent #BB 2015-06-23
     ))
+    
+    U11 <- do.call(score_matrix_deriv, args = append(score_args, grad_args))
+    out$U11 <- U11
     
     # set randomization scheme to 1 for scores for logit_integrand
     score_args$randomization <- 1
@@ -353,6 +362,8 @@ ipw_interference_second <- function(propensity_integrand,
 log_likelihood_second <- function(parameters,
                                   integrand,
                                   P, 
+                                  first_assignment,
+                                  # default is alpha_0 (first stage assignment)
                                   ...)
 {
   ## Necessary pieces ##
@@ -373,16 +384,18 @@ log_likelihood_second <- function(parameters,
                      get_args(integrand, dots))
   
   ## Calculation ##
-  if (length(parameters)%%length(P) != 0) {stop("length of parameters and first stage probability is not compatible")}
+  if (length(parameters)%%length(P) != 0) {stop("in log_likelihood_second, 
+                                                length of parameters and first stage probability is not compatible")}
+  if (length(P) == 1 && first_assignment > 0) {stop("in log_likelihood_second,
+                                                         first_assignments should be 0 if P = 1")}
   pp <- length(parameters)/length(P)
-  likelihood = 0
+
+  args <- append(int.args, list(f = integrand, parameters = 
+                                  parameters[(1+pp*(first_assignment)):(pp*(first_assignment+1))]))
+  attempt <- try(do.call(stats::integrate, args = args))
+  val <- if(is(attempt, 'try-error')) NA else attempt$value
+  likelihood = val
   
-  for (i in 1:length(P)){
-    args <- append(int.args, list(f = integrand, parameters = parameters[(1+pp*(i-1)):(pp*i)]))
-    attempt <- try(do.call(stats::integrate, args = args))
-    val <- if(is(attempt, 'try-error')) NA else attempt$value
-    likelihood = likelihood + P[i] * val
-  }
   return(log(likelihood))
 }
 
@@ -405,8 +418,10 @@ log_likelihood_second <- function(parameters,
 
 score_calc_second <- function(parameters,
                        integrand,
-                       hide.errors = TRUE,
                        P, 
+                       first_assignment, 
+                       propensity_X, 
+                       hide.errors = TRUE,
                        ...)
 {
   ## Necessary bits ##
@@ -422,7 +437,10 @@ score_calc_second <- function(parameters,
                      list(func = log_likelihood_second,
                           x    = parameters,
                           integrand = integrand,
+                          first_assignment = first_assignment,
+                          propensity_X = propensity_X, 
                           P = P))
+  
   ## Compute the derivative of the log likelihood for each parameter ##
   do.call(numDeriv::grad, args = args)
 }  
@@ -444,21 +462,17 @@ score_calc_second <- function(parameters,
 #-----------------------------------------------------------------------------#
 
 score_matrix_second <- function(integrand,
-                         X, A, G, P,
+                         propensity_X, A, G, P,
                          parameters,
+                         first_assignments,
                          runSilent = TRUE, 
                          ...)
 {
-  ## Warnings ##
-  # if(length(fixed.effects) != ncol(X)){
-  #   stop("The length of params is not equal to the number of predictors")
-  # }
-  
   ## Necessary bits ##
   integrand <- match.fun(integrand)
   dots <- list(...)
-  XX <- cbind(X, A)
-  pp <- ncol(X)
+  XX <- cbind(propensity_X, A, first_assignments[G])
+  pp <- ncol(propensity_X)
   gg <- sort(unique(G))
   
   ## Compute score for each group and parameter ##
@@ -474,8 +488,10 @@ score_matrix_second <- function(integrand,
                                 list(integrand  = integrand, 
                                      parameters = parameters,
                                      A = xx[ , (pp + 1)],
-                                     X = xx[ , 1:pp],
-                                     P = P))
+                                     propensity_X = xx[ , 1:pp],
+                                     P = P,
+                                     first_assignment = xx[, (pp + 2)][1])) 
+                 # first assignment for each group is the same, so [1]
                  do.call(score_calc_second, args = args)
                })
   
@@ -492,10 +508,12 @@ score_matrix_second <- function(integrand,
 # second derivative of log likelihood
 
 score_calc_deriv <- function(parameters,
-                             integrand,
-                             hide.errors = TRUE,
-                             P, 
-                             ...)
+                              integrand,
+                              P, 
+                              first_assignment, 
+                              hide.errors = TRUE,
+                              propensity_X,
+                              ...)
 {
   ## Necessary bits ##
   integrand <- match.fun(integrand)
@@ -510,27 +528,28 @@ score_calc_deriv <- function(parameters,
                      list(func = log_likelihood_second,
                           x    = parameters,
                           integrand = integrand,
-                          P = P))
-  ## Compute the derivative of the score_calc_second for each parameter ##
+                          first_assignment = first_assignment,
+                          P = P,
+                          propensity_X = propensity_X))
+  
+  ## Compute the derivative of the log likelihood for each parameter ##
   do.call(numDeriv::hessian, args = args)
 }  
 
+
 score_matrix_deriv <- function(integrand,
-                               X, A, G, P,
-                               parameters,
-                               runSilent = TRUE, 
-                               ...)
+                                A, G, P,
+                                parameters,
+                                propensity_X,
+                                first_assignments,
+                                runSilent = TRUE, 
+                                ...)
 {
-  ## Warnings ##
-  # if(length(fixed.effects) != ncol(X)){
-  #   stop("The length of params is not equal to the number of predictors")
-  # }
-  
   ## Necessary bits ##
   integrand <- match.fun(integrand)
   dots <- list(...)
-  XX <- cbind(X, A)
-  pp <- ncol(X)
+  XX <- cbind(propensity_X, A, first_assignments[G])
+  pp <- ncol(propensity_X)
   gg <- sort(unique(G))
   
   ## Compute score for each group and parameter ##
@@ -546,8 +565,10 @@ score_matrix_deriv <- function(integrand,
                                 list(integrand  = integrand, 
                                      parameters = parameters,
                                      A = xx[ , (pp + 1)],
-                                     X = xx[ , 1:pp],
-                                     P = P))
+                                     propensity_X = xx[ , 1:pp],
+                                     P = P,
+                                     first_assignment = xx[, (pp + 2)][1])) 
+                 # first assignment for each group is the same, so [1]
                  do.call(score_calc_deriv, args = args)
                })
   
@@ -560,12 +581,16 @@ score_matrix_deriv <- function(integrand,
   U11
 }
 
+
+
 ############
 # wrap-up function
 ##############
 ipw_effect_calc_second <- function(obj, 
                                    weights, #added parameter, w.matrix
                                    variance_estimation,
+                                   P,
+                                   propensity_X, 
                                    alpha1, 
                                    trt.lvl1, 
                                    alpha2 = NA, 
@@ -631,10 +656,11 @@ ipw_effect_calc_second <- function(obj,
         U_pe_grp    <- Ugrp[ , , a1] - Ugrp[ , , a2]
       }
     } else {
-      # pe          <- oal[a1, t1] - oal[a2, t2]
-      # pe_grp_diff <- (grp[ , a1, t1] - oal[a1, t1]) - (grp[ , a2, t2] - oal[a2, t2])
-      pe          <- oal[, a1, t1,] - oal[, a2, t2,]
-      pe_grp_diff <- (grp[, , a1, t1, ] - oal[,a1, t1,]) - (grp[ , , a2, t2,] - oal[, a2, t2,])
+      pe          <- oal[a1, t1, ] - oal[a2, t2, ]
+      pe_grp_diff <- (grp[ , a1, t1, ] - oal[a1, t1, ]) - (grp[ , a2, t2, ] - oal[a2, t2, ])
+      
+      # pe          <- oal[, a1, t1, ] - oal[, a2, t2,]
+      # pe_grp_diff <- (grp[, , a1, t1, ] - oal[,a1, t1,]) - (grp[ , , a2, t2,] - oal[, a2, t2,])
       
       if(variance_estimation == 'robust'){
         U_pe_grp    <- as.matrix(Ugrp[, , a1, t1, ] - Ugrp[, , a2, t2, ])
@@ -670,7 +696,7 @@ ipw_effect_calc_second <- function(obj,
     U11 <- obj$U11
     U <- cbind(rbind(U11, U21), c(rep(0, dim(U11)[1]), -1))
     # V matrix
-    V <- V_matrix(scores = obj$scores, 
+    V <- V_matrix_second(scores = obj$scores, 
                   point_estimates = obj$point_estimates, 
                   allocation1 = a1, allocation2 = a2, 
                   trt.lvl1 = t1, trt.lvl2 = t2, 
@@ -769,29 +795,33 @@ effect_grid <- function(allocations, treatments = c(0,1))
 
 ipw_propensity_variance_second <- function(parameters,
                                     allocations,
+                                    H, propensity_X, A, G, P, 
+                                    first_assignments, 
                                     causal_estimation_options = 
                                       list(variance_estimation = 'robust'),
                                     integrate_allocation = FALSE,
-                                    H, X, A, G, P, 
                                     effect_type = effect_type, #or contrast
-                                    propensity_integrand = logit_integrand,
+                                    propensity_integrand = logit_integrand_second,
                                     ...){
   
   out <- list()
   dots <- list(...)
   ipw_args <- append(append(dots, causal_estimation_options),
-                     list(propensity_integrand = logit_integrand, 
+                     list(propensity_integrand = logit_integrand_second, 
                           loglihood_integrand  = propensity_integrand,
                           allocations          = allocations,
                           parameters           = parameters,
                           runSilent            = TRUE, 
                           integrate_allocation = integrate_allocation,
-                          H = H, X = X, A = A, B = A, G = G, P = P))
+                          H = H, propensity_X = propensity_X, 
+                          A = A, B = A, G = G, P = P, first_assignments = first_assignments))
   ipw <- do.call(ipw_interference_second, args = ipw_args)
   out <- append(out, ipw)
   estimate_args <- list(obj = ipw,
                         variance_estimation = causal_estimation_options$variance_estimation,
                         causal_estimation_options$variance_estimation,
+                        propensity_X = propensity_X, 
+                        P           = P, 
                         alpha1      = allocations[1],
                         trt.lvl1    = 1,
                         alpha2      = allocations[1],
@@ -804,4 +834,108 @@ ipw_propensity_variance_second <- function(parameters,
   
   est <- do.call(ipw_effect_calc_second, args = estimate_args)
   return(est)
+}
+
+
+V_matrix_second <- function(scores, 
+                     point_estimates, 
+                     allocation1, 
+                     trt.lvl1, 
+                     allocation2 = NA, 
+                     trt.lvl2    = NA, 
+                     effect_type, 
+                     marginal){
+  ## Necessary bits ##
+  N  <- dim(scores)[1]
+  p  <- dim(scores)[2]
+  a1 <- allocation1
+  a2 <- allocation2
+  t1 <- trt.lvl1
+  t2 <- trt.lvl2
+  
+  ## Grab the last element of the psi(O, theta) vector: psi_a, alpha ##
+  fff <- ifelse(marginal == TRUE, 'marginal_outcomes', 'outcomes')
+  hold_oal <- point_estimates[[fff]]$overall 
+  hold_grp <- point_estimates[[fff]]$groups
+  
+  if(effect_type == 'contrast'){   
+    if(marginal == TRUE){
+      #xx <- (hold_grp[ , a1] - hold_oal[a1]) - (hold_grp[, a2] - hold_oal[a2])
+      xx <- (hold_grp[ , a1,] - hold_oal[, a1]) - (hold_grp[, a2,] - hold_oal[, a2])
+    } else {
+      xx <- (hold_grp[, a1, t1,] - hold_oal[a1, t1,]) -
+        (hold_grp[ , a2, t2,] - hold_oal[a2, t2,])
+    }
+  } 
+  else if(effect_type == 'outcome'){
+    if(marginal == TRUE){
+      xx <- hold_grp[ , a1,] - hold_oal[a1, ]
+    } else {
+      xx <- hold_grp[ , a1, t1,] - hold_oal[a1, t1,]
+    }
+  }
+  
+  ee <- cbind(scores, xx)
+  V <- crossprod(ee)/N
+  #ee <- ee[complete.cases(ee),]
+  #V <- ee/dim(ee)[1]
+  V
+}
+
+logit_integrand_second <- function(b, propensity_X, A, 
+                            parameters,
+                            allocation = A, 
+                            randomization = 1)
+{
+  ## In the case of an intercept-only model, X needs to be converted to matrix
+  # for the warning to work
+  if(!is.matrix(propensity_X)){
+    propensity_X <- as.matrix(propensity_X)
+  }
+  
+  theta <- parameters 
+  p <- ncol(propensity_X)
+  
+  ## Warnings ##
+  # if(p != ncol(X)){
+  #   stop('The number of fixed effect parameters is not equal to the number \n
+  #        of columns in the covariate matrix')
+  # }
+  
+  if(length(A) != nrow(propensity_X)){
+    stop('Length of treatment vector is not equal to number of observations in
+         propensity_X matrix')
+  }
+  
+  # Check whether to ignore random effect
+  ignore_re <- (length(theta) == p || theta[p + 1] <= 0)
+  
+  ## Calculations ## 
+  if(ignore_re){
+    pr.b <- randomization * (stats::plogis(propensity_X %*% theta[1:p]))
+  } else {
+    if (nrow(X)==1) {
+      linpred_vec <- drop(outer(propensity_X %*% theta[1:p], b, '+'))
+      ##drop() will return a vector if X has one row - BGB 2017-02-12
+      ##solution: create a matrix of one row from that vector - BGB 2017-02-12
+      linpred_mat <- matrix(linpred_vec, byrow=TRUE,
+                            nrow=1, ncol = length(linpred_vec))
+      pr.b <- randomization * (stats::plogis(linpred_mat))
+      ##pr.b should not throw errors in the apply() fun below. - BGB 2017-02-12
+    } else {
+      pr.b <- randomization * (stats::plogis(drop(outer(propensity_X %*% theta[1:p], b, '+'))))
+    }
+  }
+  
+  hh <- as.matrix((pr.b/allocation)^A * ((1-pr.b)/(1 - allocation))^(1-A))
+  
+  if(ignore_re){
+    # in this way dnorm integrates to one when integrating from -Inf to Inf
+    out <- exp(sum(log(hh))) * stats::dnorm(b, mean=0, sd = 1) 
+  } else {
+    hha <- apply(hh, 2, function(x) exp(sum(log(x))))
+    out <- hha * stats::dnorm(b, mean=0, sd = theta[p + 1])
+  }
+  #print(b)
+  return(out)
 }
