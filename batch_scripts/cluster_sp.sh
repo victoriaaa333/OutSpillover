@@ -11,8 +11,9 @@
 
 ml load "R/4.1.0-foss-2020b"
 
-#cd /home/yb254/project/OutSpillover
+# cd /home/yb254/project/OutSpillover
 
-cd /gpfs/ysm/project/forastiere/yb254/OutSpillover
+# cd /gpfs/ysm/project/forastiere/yb254/OutSpillover
 
-Rscript simulation_scripts/cluster_sp_2.R
+cd /home/yb254/OutSpillover
+Rscript simulation_scripts/second_stage_propensity.R

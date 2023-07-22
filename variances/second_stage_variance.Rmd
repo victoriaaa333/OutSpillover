@@ -6,7 +6,8 @@ output: html_document
 ---
 
 ```{r}
-setwd("~/Desktop/out-spillover")
+#setwd("~/Desktop/out-spillover")
+setwd("~/OutSpillover")
 source("utils/weight_matrix.R")
 source("utils/integrand.R")
 source("utils/utils.R")
@@ -150,8 +151,13 @@ parameters = c(parameters1, parameters2)
 ```
 
 ```{r}
-setwd("~/Desktop/out-spillover")
+# setwd("~/Desktop/out-spillover")
+setwd("~/OutSpillover")
 source("propensity/second_stage_utils.R")
+```
+
+```{r}
+first_assignments = G1 - 1
 ```
 
 ```{r}
@@ -191,14 +197,11 @@ ipw_propensity_variance(parameters1,
 ```
 
 ```{r}
-first_assignments = G1 - 1
+
 ```
 
 
 ```{r}
-setwd("~/Desktop/out-spillover")
-source("propensity/second_stage_utils.R")
-
 propensity_integrand = logit_integrand_second
 P = c(0.5, 0.5)
 

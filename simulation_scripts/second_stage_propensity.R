@@ -1,3 +1,5 @@
+setwd("~/OutSpillover")
+
 source("utils/weight_matrix.R")
 source("utils/integrand.R")
 source("utils/utils.R")
@@ -14,13 +16,24 @@ source("propensity/point_estimate_propensity.R")
 source("propensity/propensity_utils.R")
 source("propensity/propensity_effect_calc.R")
 source("point_estimates/point_estimates_utils.R")
+source("propensity/second_stage_utils.R")
 
 library(igraph)
 library(lme4)
 library(boot)
 
 result = c()
-for (i in 1:50) {
+result_G = c()
+result_N = c()
+
+for (i in 1:200) {
+
+# library(foreach)
+# library(doRNG)
+# library(doMC)
+# registerDoMC(min(detectCores() - 1, 6))
+
+# result <- foreach(i = 1:10, .combine="c") %dorng% {
   ##########
   #1. Generate a graph and dataset (treatments, covariates)
   graph = make_empty_graph(n = 0, directed = FALSE)
@@ -106,25 +119,69 @@ for (i in 1:50) {
   df1 <- df[P1 == 0.4,]
   df2 <- df[P1 == 0.6,]
   
-  X <-cbind(1, X1_num, X2)
+  X <- cbind(1, X1_num, X2)
   allocations = list(c(numerator_alpha, denominator_alphas))
-
+  first_assignments = G1 - 1
+  
 # error handling
   try({
     parameters1 <- unlist(propensity_parameter(formula, df1)[1])
     parameters2 <- unlist(propensity_parameter(formula, df2)[1])
   
     parameters = c(parameters1, parameters2)
-    obj <- ipw_propensity_variance_second(parameters,
-                                   allocations,
+    
+    # no condition
+    obj <- ipw_propensity_variance_second(parameters = parameters,
+                                   allocations = allocations,
                                    causal_estimation_options = 
                                      list(variance_estimation = 'robust'),
                                    integrate_allocation = FALSE,
-                                   H = H, X = X, P = P,
-                                   A = A, G = G, effect_type = "contrast")
+                                   H = H, propensity_X = X, P = P,
+                                   A = A, G = G, first_assignments = first_assignments,
+                                   effect_type = "contrast")
     result = rbind(result, obj)
+    
+    # conditional on group parameters
+    cond_X <- cbind(X1, X2)
+    obj_G <- ipw_propensity_variance_second(parameters = parameters,
+                                 allocations = allocations,
+                                 causal_estimation_options = 
+                                   list(variance_estimation = 'robust'),
+                                 integrate_allocation = FALSE,
+                                 propensity_X = X,
+                                 H = H, P = P,
+                                 A = A, G = G, 
+                                 first_assignments = first_assignments,
+                                 effect_type = "contrast", 
+                                 X = cond_X,
+                                 x0 = x0, # as.matrix(c("M",0.1))
+                                 X_type = c("C", "N"),
+                                 Con_type = "group")
+    result_G = rbind(result_G, obj_G)
+    
+    # conditional on neighbor parameters, remember to use H_M
+    obj_N <- ipw_propensity_variance_second(parameters = parameters,
+                                   allocations = allocations,
+                                   causal_estimation_options = 
+                                     list(variance_estimation = 'robust'),
+                                   integrate_allocation = FALSE,
+                                   H = H_M, propensity_X = X, P = P, 
+                                   A = A, G = G, 
+                                   first_assignments = first_assignments,
+                                   effect_type = "contrast", 
+                                   neighinfo = neighinfo,
+                                   x1 = as.matrix(x1_num), # x1
+                                   X_type = c("N"), # X_type
+                                   Con_type = "neigh")
+    result_N = rbind(result_N, obj_N)
     }, silent = TRUE)
+  
+  #output = list(list(nocon = obj, inf = obj_G, sp = obj_N))
 }
+
+saveRDS(result, "cluster_results/second_propensity_nocon.RDS")
+saveRDS(result_G, "cluster_results/second_propensity_group.RDS")
+saveRDS(result_N, "cluster_results/second_propensity_neigh.RDS")
 
 sd(result$estimate)
 mean(result$std.error)
