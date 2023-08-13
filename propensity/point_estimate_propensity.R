@@ -107,50 +107,50 @@ ipw_point_estimates_propensity <- function(H, G, A, weights, X = NULL, x0 = NULL
     for (j in 1:k){
       ind_est_df <- ind_est[ , , j]
       weights_df <- weights_trt[ , , j]
-      # if (Con_type == "mixed"){
-      #   M_list <- mixed_coef(weights_df, H, G, X, X_type, x0, neighinfo, A, a)
-      #   coef_est_M[ , , j] <- as.matrix(M_list[[1]])
-      #   ova_coef_est_M[ , , j] <- as.matrix(M_list[[2]])
-      # }else if (Con_type == "neigh"){
-      #   H_list <- neigh_coefs_oncont5(weights_df, H, G, neighinfo, A, a)
-      #   coef_est_H[ , , j] <- as.matrix(H_list[[1]])
-      #   ova_coef_est_H[ , , j] <- as.matrix(H_list[[2]])
-      # }else if (Con_type == "group"){
-      #   G_list <- group_coefs_oncont1(weights_df, H, G, X, X_type, x0, A, a)
-      #   coef_est_G[ , , j] <- as.matrix(G_list[[1]])
-      #   ova_coef_est_G[ , , j] <- as.matrix(G_list[[2]])
-      # }
+      if (Con_type == "mixed"){
+        M_list <- mixed_coef(weights_df, H, G, X, X_type, x0, neighinfo, A, a)
+        coef_est_M[ , , j] <- as.matrix(M_list[[1]])
+        ova_coef_est_M[ , , j] <- as.matrix(M_list[[2]])
+      }else if (Con_type == "neigh"){
+        H_list <- neigh_coefs_oncont5(weights_df, H, G, neighinfo, A, a)
+        coef_est_H[ , , j] <- as.matrix(H_list[[1]])
+        ova_coef_est_H[ , , j] <- as.matrix(H_list[[2]])
+      }else if (Con_type == "group"){
+        G_list <- group_coefs_oncont1(weights_df, H, G, X, X_type, x0, A, a)
+        coef_est_G[ , , j] <- as.matrix(G_list[[1]])
+        ova_coef_est_G[ , , j] <- as.matrix(G_list[[2]])
+      }
     }
     
     for (j in 1:k) {
       ind_est_df <- as.matrix(ind_est[ , , j])
       weights_est_df <- weights_trt[ , , j]
       
-      # if (Con_type == "mixed"){
-      #   grp_est_overall[ , p, j, ] <- apply(as.matrix(x1), 2, mixed_means_overall,
-      #                                       overall_coef = ova_coef_est_M[ , , j],
-      #                                       X_type = X_type, x0 = x0, N = N)
-      #   grp_est[ , p, j, ] <- apply(as.matrix(x1), 2, mixed_means_group, 
-      #                               cond_coefs = coef_est_M[ , , j], 
-      #                               X_type = X_type, x0 = x0) 
-      # }else if (Con_type == "neigh"){
-      #   grp_est_overall[ , p, j, ] <- apply(as.matrix(x1), 2, neigh_means_oncont4,
-      #                                       overall_coef = ova_coef_est_H[ , , j],
-      #                                       X_type = X_type, N = N)
-      #   grp_est[ , p, j, ] <- apply(as.matrix(x1), 2, neigh_means_oncont3,
-      #                               cond_coefs = coef_est_H[ , , j],
-      #                               X_type = X_type)
-      # }else if (Con_type == "group"){
-      #   grp_est_overall[ , p, j, ] <- apply(as.matrix(x0), 2, group_means_oncont1,
-      #                                       overall_coef = ova_coef_est_G[ , , j],
-      #                                       X_type = X_type, N = N)
-      #   grp_est[ , p, j, ] <- apply(as.matrix(x0), 2, group_means_oncont2,
-      #                               cond_coefs = coef_est_G[ , , j],
-      #                               X_type = X_type)
-      # }else{
+      if (Con_type == "mixed"){
+        grp_est_overall[ , p, j, ] <- apply(as.matrix(x1), 2, mixed_means_overall,
+                                            overall_coef = ova_coef_est_M[ , , j],
+                                            X_type = X_type, x0 = x0, N = N)
+        grp_est[ , p, j, ] <- apply(as.matrix(x1), 2, mixed_means_group,
+                                    cond_coefs = coef_est_M[ , , j],
+                                    X_type = X_type, x0 = x0)
+      }else if (Con_type == "neigh"){
+        grp_est_overall[ , p, j, ] <- apply(as.matrix(x1), 2, neigh_means_oncont4,
+                                            overall_coef = ova_coef_est_H[ , , j],
+                                            X_type = X_type, N = N)
+        grp_est[ , p, j, ] <- apply(as.matrix(x1), 2, neigh_means_oncont3,
+                                    cond_coefs = coef_est_H[ , , j],
+                                    X_type = X_type)
+      }else if (Con_type == "group"){
+        grp_est_overall[ , p, j, ] <- apply(as.matrix(x0), 2, group_means_oncont1,
+                                            overall_coef = ova_coef_est_G[ , , j],
+                                            X_type = X_type, N = N)
+        grp_est[ , p, j, ] <- apply(as.matrix(x0), 2, group_means_oncont2,
+                                    cond_coefs = coef_est_G[ , , j],
+                                    X_type = X_type)
+      }else{
         grp_est_overall[, , j, ] <- apply(ind_est_df, 2, group_means_propensity, A, G, a)
         grp_est[, , j, ] <- apply(ind_est_df, 2, group_means_propensity, A, G, a)
-      #}
+      }
     }
     
     oal_est <- apply(grp_est_overall, 2:4, mean, na.rm = TRUE)

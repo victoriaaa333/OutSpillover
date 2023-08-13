@@ -574,8 +574,10 @@ score_matrix_deriv <- function(integrand,
   
   ## Reshape list into matrix ##
   U11 = matrix(0, nrow = length(parameters), ncol = length(parameters))
+  
   for (i in 1:length(gg)) {
     U11 =  U11 - s.list[[i]]
+    #U11 = U11 - s.list[[i]]/sum(first_assignments == first_assignments[i])
   }
   U11 = U11/length(gg)
   U11
