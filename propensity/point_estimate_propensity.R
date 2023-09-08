@@ -1,13 +1,7 @@
-
-
 ipw_point_estimates_propensity <- function(H, G, A, weights, X = NULL, x0 = NULL, 
                                             neighinfo = NULL, x1= NULL, X_type = NULL,
                                             Con_type = "No-con"){
-  ## Necessary Bits ##
-  ## ADD 072823: remove intercept
-  # if (mean(X[,1] == 1) == 1){
-  #   X <- X[,2:dim(X)[2]]
-  # }
+
   
   grps     <- dimnames(weights)[[1]]
   alphas   <- dimnames(weights)[[length(dim(weights))]]
@@ -150,6 +144,8 @@ ipw_point_estimates_propensity <- function(H, G, A, weights, X = NULL, x0 = NULL
       }else{
         grp_est_overall[, , j, ] <- apply(ind_est_df, 2, group_means_propensity, A, G, a)
         grp_est[, , j, ] <- apply(ind_est_df, 2, group_means_propensity, A, G, a)
+        #grp_est_overall[, p, j, ] <- group_means_null(ind_est_df, G, A, a)
+        #grp_est[, p, j, ] <- group_means_null(ind_est_df, G, A, a)
       }
     }
     

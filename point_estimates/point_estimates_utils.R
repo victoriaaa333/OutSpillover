@@ -29,6 +29,7 @@ group_coefs_oncont1 <- function(weights_df, H, G, X, X_type, x0, A, a){
   }else{
     ind_cond <- 1:dim(X_cat)[1]}
   
+  #verall_fits = lm(H ~ A +X2 + A*X2, weights = w, data = fits_df)
   if (sum(X_type == "N") > 0){
     group_df <- as.data.frame(cbind(weights_df, H, G, X_num))
     colnames(group_df) <- c('w', 'H', 'G', num_names)

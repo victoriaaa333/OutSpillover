@@ -165,7 +165,8 @@ wght_deriv_calc_second <- function(parameters,
                             integrand,
                             allocation,
                             propensity_X,
-                            integrate_allocation = TRUE,
+                            integrate_allocation = FALSE,
+                            P = P,
                             ...)
 {  
   ## Necessary pieces ##
@@ -193,7 +194,7 @@ wght_deriv_array_second <- function(parameters,
                              allocations, 
                              G, A, P,
                              propensity_X,
-                             integrate_allocation = TRUE,
+                             integrate_allocation = FALSE,
                              runSilent = TRUE, 
                              ...)
 {
@@ -281,7 +282,8 @@ ipw_interference_second <- function(propensity_integrand,
   
   #### Arguments Necessary for Causal Estimation Functions ####
   integrand_args <- get_args(FUN = propensity_integrand, args_list = dots)
-  point_est_args <- get_args(FUN = ipw_point_estimates_mixed_test4, args_list = dots)
+  #point_est_args <- get_args(FUN = ipw_point_estimates_mixed_test4, args_list = dots)
+  point_est_args <- get_args(FUN = ipw_point_estimates_propensity, args_list = dots)
   loglihood_args <- get_args(FUN = loglihood_integrand, args_list = dots)
   grad_args      <- get_args(FUN = numDeriv::grad, args_list = dots)
   integrate_args <- get_args(FUN = stats::integrate, args_list = dots)
@@ -317,7 +319,8 @@ ipw_interference_second <- function(propensity_integrand,
   
   
   #### Calculate output ####
-  out$point_estimates <- do.call(ipw_point_estimates_mixed_test4, args = point_args)
+  #out$point_estimates <- do.call(ipw_point_estimates_mixed_test4, args = point_args)
+  out$point_estimates <- do.call(ipw_point_estimates_propensity, args = point_args)
   
   if(variance_estimation == 'robust'){
     U_args     <- append(estimate_args, list(weights = weightd))
@@ -576,10 +579,11 @@ score_matrix_deriv <- function(integrand,
   U11 = matrix(0, nrow = length(parameters), ncol = length(parameters))
   
   for (i in 1:length(gg)) {
-    U11 =  U11 - s.list[[i]]
-    #U11 = U11 - s.list[[i]]/sum(first_assignments == first_assignments[i])
+    # this is where -1 * U11 comes 
+    #U11 =  U11 - s.list[[i]]
+    U11 = U11 - s.list[[i]]/sum(first_assignments == first_assignments[i])
   }
-  U11 = U11/length(gg)
+  #U11 = U11/length(gg)
   U11
 }
 
@@ -658,11 +662,11 @@ ipw_effect_calc_second <- function(obj,
         U_pe_grp    <- Ugrp[ , , a1] - Ugrp[ , , a2]
       }
     } else {
-      pe          <- oal[a1, t1, ] - oal[a2, t2, ]
-      pe_grp_diff <- (grp[ , a1, t1, ] - oal[a1, t1, ]) - (grp[ , a2, t2, ] - oal[a2, t2, ])
+      # pe          <- oal[a1, t1, ] - oal[a2, t2, ]
+      # pe_grp_diff <- (grp[ , a1, t1, ] - oal[a1, t1, ]) - (grp[ , a2, t2, ] - oal[a2, t2, ])
       
-      # pe          <- oal[, a1, t1, ] - oal[, a2, t2,]
-      # pe_grp_diff <- (grp[, , a1, t1, ] - oal[,a1, t1,]) - (grp[ , , a2, t2,] - oal[, a2, t2,])
+      pe          <- oal[, a1, t1, ] - oal[, a2, t2,]
+      pe_grp_diff <- (grp[, , a1, t1, ] - oal[,a1, t1,]) - (grp[ , , a2, t2,] - oal[, a2, t2,])
       
       if(variance_estimation == 'robust'){
         U_pe_grp    <- as.matrix(Ugrp[, , a1, t1, ] - Ugrp[, , a2, t2, ])
@@ -865,8 +869,10 @@ V_matrix_second <- function(scores,
       #xx <- (hold_grp[ , a1] - hold_oal[a1]) - (hold_grp[, a2] - hold_oal[a2])
       xx <- (hold_grp[ , a1,] - hold_oal[, a1]) - (hold_grp[, a2,] - hold_oal[, a2])
     } else {
-      xx <- (hold_grp[, a1, t1,] - hold_oal[a1, t1,]) -
-        (hold_grp[ , a2, t2,] - hold_oal[a2, t2,])
+      # xx <- (hold_grp[, a1, t1,] - hold_oal[a1, t1,]) -
+      #   (hold_grp[ , a2, t2,] - hold_oal[a2, t2,])
+      xx <- (hold_grp[, , a1, t1,] - hold_oal[, a1, t1,]) -
+        (hold_grp[, , a2, t2,] - hold_oal[, a2, t2,])
     }
   } 
   else if(effect_type == 'outcome'){

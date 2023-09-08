@@ -18,6 +18,8 @@ source("propensity/propensity_effect_calc.R")
 source("point_estimates/point_estimates_utils.R")
 source("propensity/second_stage_utils.R")
 
+source("propensity/propensity_weighted_regression.R")
+
 library(igraph)
 library(lme4)
 library(boot)
@@ -29,7 +31,7 @@ result_N = c()
 result_G1 = c()
 result_G2 = c()
 
-for (i in 1:200) {
+for (i in 1:50) {
 
 # library(foreach)
 # library(doRNG)
@@ -109,9 +111,10 @@ numCores <- detectCores()
   X_cat <- as.matrix(X[, X_type == "C"])
   
   df$treated_neigh <- h_neighsum(graph, df$A, 1) 
-  df$interaction1 <- ifelse(X_cat[,1] == "M", 1, 0)  * df$treated_neigh
-  df$interaction2 <- X_num[,1] * df$treated_neigh
-  
+  # df$interaction1 <- ifelse(X_cat[,1] == "M", 1, 0)  * df$treated_neigh
+  # df$interaction2 <- X_num[,1] * df$treated_neigh
+  df$interaction1 <- cov_neighsum(graph, A, 1, X = ifelse(X_cat[,1] == "M", 1, 0))
+  df$interaction2 <- cov_neighsum(graph, A, 1, X = X_num[,1])
   ##########
   # 2. Outcome model
   aa = 2; bb = 5; cc = 7; dd = 9
@@ -153,73 +156,103 @@ numCores <- detectCores()
                                    H = H, propensity_X = X, P = P,
                                    A = A, G = G, first_assignments = first_assignments,
                                    effect_type = "contrast")
+    
     result = rbind(result, obj)
     
     # conditional on group parameters
-    cond_X <- cbind(X1, X2)
-    obj_G <- ipw_propensity_variance_second(parameters = parameters,
-                                 allocations = allocations,
-                                 causal_estimation_options = 
-                                   list(variance_estimation = 'robust'),
-                                 integrate_allocation = FALSE,
-                                 propensity_X = X,
-                                 H = H, P = P,
-                                 A = A, G = G, 
-                                 first_assignments = first_assignments,
-                                 effect_type = "contrast", 
-                                 X = cond_X,
-                                 x0 = x0, # as.matrix(c("M",0.1))
-                                 X_type = c("C", "N"),
-                                 Con_type = "group")
     
-    obj_G1 <- ipw_propensity_variance_second(parameters = parameters,
+    cond_X <- cbind(X1, X2)
+    # obj_G <- ipw_propensity_variance_second(parameters = parameters,
+    #                              allocations = allocations,
+    #                              causal_estimation_options = 
+    #                                list(variance_estimation = 'robust'),
+    #                              integrate_allocation = FALSE,
+    #                              propensity_X = X,
+    #                              H = H, P = P,
+    #                              A = A, G = G, 
+    #                              first_assignments = first_assignments,
+    #                              effect_type = "contrast", 
+    #                              X = cond_X,
+    #                              x0 = x0, # as.matrix(c("M",0.1))
+    #                              X_type = c("C", "N"),
+    #                              Con_type = "group")
+    
+    obj_G <- ipw_propensity_variance_regression(parameters = parameters,
+                                                allocations = allocations,
+                                                causal_estimation_options = 
+                                                  list(variance_estimation = 'robust'),
+                                                integrate_allocation = FALSE,
+                                                propensity_X = X,
+                                                H = H, P = P,
+                                                A = A, G = G, 
+                                                first_assignments = first_assignments,
+                                                effect_type = "contrast", 
+                                                X = cond_X,
+                                                x0 = x0, # as.matrix(c("M",0.1))
+                                                X_type = c("C", "N"),
+                                                Con_type = "group")
+    result_G = rbind(result_G, obj_G)
+    
+    obj_G1 <- ipw_propensity_variance_regression(parameters = parameters,
                                             allocations = allocations,
-                                            causal_estimation_options = 
+                                            causal_estimation_options =
                                               list(variance_estimation = 'robust'),
                                             integrate_allocation = FALSE,
                                             propensity_X = X,
                                             H = H, P = P,
-                                            A = A, G = G, 
+                                            A = A, G = G,
                                             first_assignments = first_assignments,
-                                            effect_type = "contrast", 
+                                            effect_type = "contrast",
                                             X = cbind(X2),
-                                            x0 = as.matrix(c(0.1)), 
+                                            x0 = as.matrix(c(0.1)),
                                             X_type = c("N"),
                                             Con_type = "group")
+    result_G1 = rbind(result_G1, obj_G1)
     
-    obj_G2 <- ipw_propensity_variance_second(parameters = parameters,
+    # obj_G2 <- ipw_propensity_variance_second(parameters = parameters,
+    #                                         allocations = allocations,
+    #                                         causal_estimation_options =
+    #                                           list(variance_estimation = 'robust'),
+    #                                         integrate_allocation = FALSE,
+    #                                         propensity_X = X,
+    #                                         H = H, P = P,
+    #                                         A = df$A, G = df$G,
+    #                                         first_assignments = first_assignments,
+    #                                         effect_type = "contrast",
+    #                                         X = cbind(X1),
+    #                                         x0 = as.matrix(c("M")),
+    #                                         X_type = c("C"),
+    #                                         Con_type = "group")
+    # 
+    # result_G2 = rbind(result_G2, obj_G2)
+    # 
+    # conditional on neighbor parameters, remember to use H_M
+    # obj_N <- ipw_propensity_variance_second(parameters = parameters,
+    #                                allocations = allocations,
+    #                                causal_estimation_options =
+    #                                  list(variance_estimation = 'robust'),
+    #                                integrate_allocation = FALSE,
+    #                                H = H_M, propensity_X = X, P = P,
+    #                                A = A, G = G,
+    #                                first_assignments = first_assignments,
+    #                                effect_type = "contrast",
+    #                                neighinfo = neighinfo,
+    #                                x1 = as.matrix(x1_num), # x1
+    #                                X_type = c("N"), # X_type
+    #                                Con_type = "neigh")
+    obj_N <- ipw_propensity_variance_regression(parameters = parameters,
                                             allocations = allocations,
-                                            causal_estimation_options = 
+                                            causal_estimation_options =
                                               list(variance_estimation = 'robust'),
                                             integrate_allocation = FALSE,
-                                            propensity_X = X,
-                                            H = H, P = P,
-                                            A = df$A, G = df$G, 
+                                            H = H_M, propensity_X = X, P = P,
+                                            A = A, G = G,
                                             first_assignments = first_assignments,
-                                            effect_type = "contrast", 
-                                            X = cbind(X1),
-                                            x0 = as.matrix(c("M")), 
-                                            X_type = c("C"),
-                                            Con_type = "group")
-    
-    result_G = rbind(result_G, obj_G)
-    result_G1 = rbind(result_G1, obj_G1)
-    result_G2 = rbind(result_G2, obj_G2)
-    
-    # conditional on neighbor parameters, remember to use H_M
-    obj_N <- ipw_propensity_variance_second(parameters = parameters,
-                                   allocations = allocations,
-                                   causal_estimation_options = 
-                                     list(variance_estimation = 'robust'),
-                                   integrate_allocation = FALSE,
-                                   H = H_M, propensity_X = X, P = P, 
-                                   A = A, G = G, 
-                                   first_assignments = first_assignments,
-                                   effect_type = "contrast", 
-                                   neighinfo = neighinfo,
-                                   x1 = as.matrix(x1_num), # x1
-                                   X_type = c("N"), # X_type
-                                   Con_type = "neigh")
+                                            effect_type = "contrast",
+                                            neighinfo = neighinfo,
+                                            x1 = as.matrix(x1_num), # x1
+                                            X_type = c("N"), # X_type
+                                            Con_type = "neigh")
     result_N = rbind(result_N, obj_N)
     }, silent = TRUE)
   
@@ -231,12 +264,12 @@ numCores <- detectCores()
 #   # results <- lapply(trials, boot_fx)
 # })
 
-saveRDS(result, "cluster_results/second_propensity_nocon (new intercept) 1.RDS")
-saveRDS(result_G, "cluster_results/second_propensity_group (new intercept) 1.RDS")
-saveRDS(result_N, "cluster_results/second_propensity_neigh (new intercept) 1.RDS")
-saveRDS(result_G1, "cluster_results/second_propensity_group1 (new intercept) 1.RDS")
-saveRDS(result_G2, "cluster_results/second_propensity_group2 (new intercept) 1.RDS")
+saveRDS(result_G, "cluster_results/second_propensity_group (new UVU U11).RDS")
+saveRDS(result, "cluster_results/second_propensity_nocon (new UVU U11).RDS")
+saveRDS(result_N, "cluster_results/second_propensity_neigh (new UVU U11).RDS")
+saveRDS(result_G1, "cluster_results/second_propensity_group1 (new UVU U11).RDS")
+# saveRDS(result_G2, "cluster_results/second_propensity_group2 (new intercept) 1.RDS")
 # (new intercept)
 
-sd(result$estimate)
-mean(result$std.error)
+sd(result_G$estimate)
+mean(result_G$std.error)
