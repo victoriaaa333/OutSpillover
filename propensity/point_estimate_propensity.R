@@ -144,8 +144,6 @@ ipw_point_estimates_propensity <- function(H, G, A, weights, X = NULL, x0 = NULL
       }else{
         grp_est_overall[, , j, ] <- apply(ind_est_df, 2, group_means_propensity, A, G, a)
         grp_est[, , j, ] <- apply(ind_est_df, 2, group_means_propensity, A, G, a)
-        #grp_est_overall[, p, j, ] <- group_means_null(ind_est_df, G, A, a)
-        #grp_est[, p, j, ] <- group_means_null(ind_est_df, G, A, a)
       }
     }
     

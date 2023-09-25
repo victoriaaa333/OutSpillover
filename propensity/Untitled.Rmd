@@ -7,8 +7,9 @@ output: html_document
 
 ```{r}
 setwd("~/OutSpillover")
-dat <- rbind(readRDS("cluster_results/second_propensity_neigh (new UVU U11).RDS")) 
-             #readRDS("cluster_results/second_propensity_group1 (new UVU A==a) 1.RDS") #analytical var
+dat <- rbind(readRDS("cluster_results/second_propensity_outcome_group.RDS"))
+# cluster_results/second_propensity_neigh (new UVU, diffX)4.RDS
+# cluster_results/second_propensity_group1 (new UVU, noc = 100, nsim = 100).RDS
 ```
 
 ```{r}
@@ -19,13 +20,15 @@ lq_std <- quantile(dat$std.error, 0.025, na.rm = TRUE)
 
 #dat <- dat[dat$estimate > lq & dat$estimate < hq & dat$std.error > lq_std & dat$std.error < hq_std, ] 
 
-mean(dat[intersect(which(dat$std.error > lq_std), which(dat$std.error < hq_std)),]$std.error)
-sd(dat$estimate[intersect(which(dat$estimate > lq), which(dat$estimate < hq))])
+#sd(dat$estimate[intersect(which(dat$estimate > lq), which(dat$estimate < hq))])
+#mean(dat[intersect(which(dat$std.error > lq_std), which(dat$std.error < hq_std)),]$std.error)
 sd(dat$estimate)
 mean(dat$std.error, na.rm = TRUE)
 mean(dat$estimate)
 ```
-11.82889; 11.93076
+5 + 7 + 9 * 0.1 = 12.9
+5 + 7 * 0.5 + 9 * 0.5 = 13
+
 ```{r}
 setwd("~/OutSpillover")
 
@@ -153,9 +156,9 @@ graph = make_empty_graph(n = 0, directed = FALSE)
 parameters1 <- unlist(propensity_parameter(formula, df1)[1])
 parameters2 <- unlist(propensity_parameter(formula, df2)[1])
 parameters = c(parameters1, parameters2)
-# P = c(0.5, 0.5)
-#parameters = unlist(propensity_parameter(formula, df)[1])
-#parameters = c(parameters, parameters)
+
+# parameters = unlist(propensity_parameter(formula, df)[1])
+# parameters = c(parameters, parameters)
 P = c(0.5,0.5)
 propensity_X = X
 ipw_propensity_variance_second(parameters = parameters,
@@ -172,14 +175,12 @@ integrate_args <- list()
 propensity_integrand <- logit_integrand_second
 grad_args <- list()
 
-weight_args <- append(append(integrand_args, integrate_args),
-                      list(integrand   = propensity_integrand,
+weight_args <-list(integrand = propensity_integrand,
                            allocations = allocations,
                            propensity_X = propensity_X, A = A, G = G, P = P,
                            parameters = parameters,
                            runSilent  = TRUE, #BB 2015-06-23
-                           integrate_allocation = FALSE
-                      ))
+                           integrate_allocation = FALSE)
 weightd <- do.call(wght_deriv_array_second, args = append(weight_args, grad_args))
 weights <- do.call(wght_matrix_second, args = weight_args)
 
@@ -199,6 +200,78 @@ score_matrix_second(integrand = propensity_integrand,
                          propensity_X = X, A = A, G = G, P = P,
                          parameters = parameters,
                          first_assignments = first_assignments)
+
+```
+
+```{r}
+logit_integrand_second_new <- function(b, propensity_X, A, 
+                                   parameters,
+                                   first_assignment, 
+                                   allocation = A, 
+                                   randomization = 1)
+{
+  ## In the case of an intercept-only model, X needs to be converted to matrix
+  # for the warning to work
+  if(!is.matrix(propensity_X)){
+    propensity_X <- as.matrix(propensity_X)
+  }
+  
+  p <- ncol(propensity_X)
+  pp <- length(parameters)/(p+1)
+  theta <- parameters[((p+1)*(first_assignment)+1):((p+1)*(first_assignment+1))] 
+  ## Warnings ##
+  # if(p != ncol(X)){
+  #   stop('The number of fixed effect parameters is not equal to the number \n
+  #        of columns in the covariate matrix')
+  # }
+  
+  if(length(A) != nrow(propensity_X)){
+    stop('Length of treatment vector is not equal to number of observations in
+         propensity_X matrix')
+  }
+  
+  # Check whether to ignore random effect
+  ignore_re <- (length(theta) == p || theta[p + 1] <= 0)
+  
+  ## Calculations ## 
+  if(ignore_re){
+    pr.b <- randomization * (stats::plogis(propensity_X %*% theta[1:p]))
+  } else {
+    if (nrow(X)==1) {
+      linpred_vec <- drop(outer(propensity_X %*% theta[1:p], b, '+'))
+      ##drop() will return a vector if X has one row - BGB 2017-02-12
+      ##solution: create a matrix of one row from that vector - BGB 2017-02-12
+      linpred_mat <- matrix(linpred_vec, byrow=TRUE,
+                            nrow=1, ncol = length(linpred_vec))
+      pr.b <- randomization * (stats::plogis(linpred_mat))
+      ##pr.b should not throw errors in the apply() fun below. - BGB 2017-02-12
+    } else {
+      pr.b <- randomization * (stats::plogis(drop(outer(propensity_X %*% theta[1:p], b, '+'))))
+    }
+  }
+  
+  hh <- as.matrix((pr.b/allocation)^A * ((1-pr.b)/(1 - allocation))^(1-A))
+  
+  if(ignore_re){
+    # in this way dnorm integrates to one when integrating from -Inf to Inf
+    out <- exp(sum(log(hh))) * stats::dnorm(b, mean=0, sd = 1) 
+  } else {
+    hha <- apply(hh, 2, function(x) exp(sum(log(x))))
+    out <- hha * stats::dnorm(b, mean=0, sd = theta[p + 1])
+  }
+  #print(b)
+  return(out)
+}
+
+```
+
+```{r}
+setwd("~/OutSpillover")
+source("propensity/second_stage_utils.R")
+
+score_matrix_deriv(integrand = logit_integrand_second,
+                   propensity_X = X, A = A, G = G, P = P,
+                   parameters = parameters, first_assignments = first_assignments)
 
 
 ```
