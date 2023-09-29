@@ -507,7 +507,7 @@ score_matrix_second <- function(integrand,
   out 
 }
 
-#####
+######
 # second derivative of log likelihood
 
 score_calc_deriv <- function(parameters,
@@ -527,14 +527,20 @@ score_calc_deriv <- function(parameters,
                      get_args(stats::integrate, dots))
   fargs    <- append(int.args, get_args(numDeriv::grad, dots))
   
+  pp <- length(parameters)/length(P)
+  parameters_integrand <-
+    parameters[(1+pp*(first_assignment)):(pp*(first_assignment+1))]
+  
   args     <- append(fargs,
                      list(func = log_likelihood_second,
                           x    = parameters,
                           integrand = integrand,
+                          P = P,
                           first_assignment = first_assignment,
-                          propensity_X = propensity_X,
-                          P = P))
-  
+                          #parameters_integrand = parameters_integrand,
+                          #assigned_group = first_assignment,
+                          propensity_X = propensity_X))
+  #print(args)
   ## Compute the derivative of the log likelihood for each parameter ##
   do.call(numDeriv::hessian, args = args)
 }  
@@ -564,12 +570,12 @@ score_matrix_deriv <- function(integrand,
   s.list <- by(XX, INDICES = G, simplify = TRUE, 
                FUN = function(xx) {
                  args <- append(fargs, 
-                                list(integrand  = integrand, 
-                                     parameters = parameters,
-                                     A = xx[ , (pp + 1)],
-                                     propensity_X = xx[ , 1:pp],
+                                list(parameters = parameters,
+                                     integrand  = integrand, 
                                      P = P,
-                                     first_assignment = as.numeric(xx[1, (pp + 2)]))) 
+                                     first_assignment = as.numeric(xx[, (pp + 2)][1]),
+                                     propensity_X = xx[ , 1:pp],
+                                     A = xx[ , (pp + 1)])) 
                  # first assignment for each group is the same, so [1]
                  do.call(score_calc_deriv, args = args)
                })
@@ -889,7 +895,7 @@ V_matrix_second <- function(scores,
   V
 }
 
-logit_integrand_second_old <- function(b, propensity_X, A, 
+logit_integrand_second <- function(b, propensity_X, A, 
                             parameters,
                             allocation = A, 
                             randomization = 1)
@@ -902,6 +908,7 @@ logit_integrand_second_old <- function(b, propensity_X, A,
   
   theta <- parameters 
   p <- ncol(propensity_X)
+  #print(theta[1])
   
   ## Warnings ##
   # if(p != ncol(X)){
@@ -943,65 +950,6 @@ logit_integrand_second_old <- function(b, propensity_X, A,
     hha <- apply(hh, 2, function(x) exp(sum(log(x))))
     out <- hha * stats::dnorm(b, mean=0, sd = theta[p + 1])
   }
-  #print(b)
   return(out)
 }
 
-logit_integrand_second <- function(b, propensity_X, A, 
-                                   parameters,
-                                   first_assignment, 
-                                   allocation = A, 
-                                   randomization = 1)
-{
-  ## In the case of an intercept-only model, X needs to be converted to matrix
-  # for the warning to work
-  if(!is.matrix(propensity_X)){
-    propensity_X <- as.matrix(propensity_X)
-  }
-  
-  p <- ncol(propensity_X)
-  pp <- length(parameters)/(p+1)
-  theta <- parameters[((p+1)*(first_assignment)+1):((p+1)*(first_assignment+1))] 
-  ## Warnings ##
-  # if(p != ncol(X)){
-  #   stop('The number of fixed effect parameters is not equal to the number \n
-  #        of columns in the covariate matrix')
-  # }
-  
-  if(length(A) != nrow(propensity_X)){
-    stop('Length of treatment vector is not equal to number of observations in
-         propensity_X matrix')
-  }
-  
-  # Check whether to ignore random effect
-  ignore_re <- (length(theta) == p || theta[p + 1] <= 0)
-  
-  ## Calculations ## 
-  if(ignore_re){
-    pr.b <- randomization * (stats::plogis(propensity_X %*% theta[1:p]))
-  } else {
-    if (nrow(X)==1) {
-      linpred_vec <- drop(outer(propensity_X %*% theta[1:p], b, '+'))
-      ##drop() will return a vector if X has one row - BGB 2017-02-12
-      ##solution: create a matrix of one row from that vector - BGB 2017-02-12
-      linpred_mat <- matrix(linpred_vec, byrow=TRUE,
-                            nrow=1, ncol = length(linpred_vec))
-      pr.b <- randomization * (stats::plogis(linpred_mat))
-      ##pr.b should not throw errors in the apply() fun below. - BGB 2017-02-12
-    } else {
-      pr.b <- randomization * (stats::plogis(drop(outer(propensity_X %*% theta[1:p], b, '+'))))
-    }
-  }
-  
-  hh <- as.matrix((pr.b/allocation)^A * ((1-pr.b)/(1 - allocation))^(1-A))
-  
-  if(ignore_re){
-    # in this way dnorm integrates to one when integrating from -Inf to Inf
-    out <- exp(sum(log(hh))) * stats::dnorm(b, mean=0, sd = 1) 
-  } else {
-    hha <- apply(hh, 2, function(x) exp(sum(log(x))))
-    out <- hha * stats::dnorm(b, mean=0, sd = theta[p + 1])
-  }
-  #print(b)
-  return(out)
-}

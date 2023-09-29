@@ -7,7 +7,7 @@ output: html_document
 
 ```{r}
 setwd("~/OutSpillover")
-dat <- rbind(readRDS("cluster_results/second_propensity_outcome_group.RDS"))
+dat <- rbind(readRDS("cluster_results/second_propensity_outcome_neigh.RDS"))
 # cluster_results/second_propensity_neigh (new UVU, diffX)4.RDS
 # cluster_results/second_propensity_group1 (new UVU, noc = 100, nsim = 100).RDS
 ```
@@ -59,8 +59,8 @@ library(boot)
 
 ```{r}
 graph = make_empty_graph(n = 0, directed = FALSE)
-  noc = 50
-  ss = 100
+  noc = 10
+  ss = 20
   
   repeat{
     g2 = sample_gnp(ss, 0.5, directed = FALSE, loops = FALSE)
@@ -269,10 +269,25 @@ logit_integrand_second_new <- function(b, propensity_X, A,
 setwd("~/OutSpillover")
 source("propensity/second_stage_utils.R")
 
-score_matrix_deriv(integrand = logit_integrand_second,
+# score_matrix_second(integrand = logit_integrand_second,
+#                          propensity_X = X, A = A, G = G, P = P,
+#                          parameters = parameters,
+#                          first_assignments = first_assignments)
+
+score_matrix_deriv(integrand = logit_integrand_second_old,
                    propensity_X = X, A = A, G = G, P = P,
                    parameters = parameters, first_assignments = first_assignments)
 
+
+```
+
+```{r}
+setwd("~/OutSpillover")
+source("propensity/score_utils.R")
+
+score_matrix_deriv_new(integrand = logit_integrand_second_new,
+                   propensity_X = X, A = A, G = G, P = P,
+                   parameters = parameters, first_assignments = first_assignments)
 
 ```
 

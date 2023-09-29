@@ -52,7 +52,7 @@ for (i in 1:100) {
   P = c(0.5,0.5) 
   
   # Assume random effect ~ N(0, 0.2^2) for each group
-  ranef <- rnorm(noc, mean = 0, sd = 0.2)
+  ranef <- rnorm(noc, mean = 0, sd = 0.01)
   group_ef <- rep(ranef, each = ss)
   
   # assign to group 1 (0.4) and group 2 (0.6) randomly
@@ -227,6 +227,6 @@ for (i in 1:100) {
 }
 
 saveRDS(result_G, "cluster_results/second_propensity_outcome_group.RDS")
-#saveRDS(result, "cluster_results/second_propensity_outcome_nocon.RDS")
+saveRDS(result, "cluster_results/second_propensity_outcome_nocon.RDS")
 saveRDS(result_N, "cluster_results/second_propensity_outcome_neigh.RDS")
 saveRDS(result_G1, "cluster_results/second_propensity_outcome_group1.RDS")
