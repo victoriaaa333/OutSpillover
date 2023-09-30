@@ -25,7 +25,7 @@ print(args)
 ### 3. both variables ###
 print("Starting both for influencer")
 
-result_b <- foreach(i = 1:num_sims, .combine="c") %do% {
+result_b1 <- foreach(i = 1:num_sims, .combine="c") %do% {
 
   ##########
   #1. Generate a graph and dataset (treatments, covariates)
@@ -71,7 +71,8 @@ result_b <- foreach(i = 1:num_sims, .combine="c") %do% {
   
   ##########
   # 2. Outcome model
-  a = 0; b = 1; c = 1; d = 2
+  # a = 0; b = 1; c = 1; d = 2
+  a = 1; b = 2; c = 3; d = 4
   Y = apply(cbind(df$A, df$treated_neigh, df$interaction1, df$interaction2), 1, #X_num,
             function(x)  rnorm(1, mean = a*x[1] + b*x[2] + c*x[3] + d*x[4], sd = 1))  
   H = h_neighborhood(graph, Y, 1) 
@@ -133,10 +134,11 @@ result_b <- foreach(i = 1:num_sims, .combine="c") %do% {
  output = list(list(nocon = a, inf = b, sp = c, mixed = d, boot_inf = b2))
 }
 
-filename = paste(
-  "cluster_results/inf_model_both_var(sd=1, w/boot, run=", 
-  run_idx, 
-  ").RDS", sep='')
-saveRDS(result_b, filename)
+# filename = paste(
+#  "check_results/inf_model_both_var(sd=1, w/boot, run=", 
+#  run_idx, 
+#  ").RDS", sep='')
+saveRDS(result_b1, "check_results/inf_model_both_var(sd = 1, w/boot).RDS")
+
 
 

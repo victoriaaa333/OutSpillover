@@ -14,7 +14,7 @@ library(lme4)
 library(foreach)
 library(doMC)
 
-result_c1 <- foreach(i = 1:500, .combine="c") %do% {
+result_c0 <- foreach(i = 1:500, .combine="c") %do% {
   
   ##########
   #1. Generate a graph and dataset (treatments, covariates)
@@ -60,7 +60,7 @@ result_c1 <- foreach(i = 1:500, .combine="c") %do% {
   
   ##########
   # 2. Outcome model
-  a = 0; b = 1; c = 1; d = 2
+  a = 1; b = 2; c = 3; d = 4
   Y = apply(cbind(df$A, df$treated_neigh, df$interaction1, df$interaction2), 1, #X_num,
             function(x)  rnorm(1, mean = a*x[1] + b*x[2] + c*x[3] + d*x[4], sd = 1))  
   H = h_neighborhood(graph, Y, 1) 
@@ -106,4 +106,4 @@ result_c1 <- foreach(i = 1:500, .combine="c") %do% {
   output = list(list(nocon = a, inf = b, sp = c, mixed = d))
 }
 
-saveRDS(result_c1, "cluster_results/sp_model_cat_var.RDS")
+saveRDS(result_c0, "check_results/sp_model_cat_var.RDS")

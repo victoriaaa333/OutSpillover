@@ -64,7 +64,8 @@ result_c2 <- foreach(i = 1:500, .combine="c") %do% {
   
   ##########
   # 2. Outcome model
-  a = 0; b = 1; c = 1; d = 2; e = 3; f = 4
+  # a = 0; b = 1; c = 1; d = 2; e = 3; f = 4
+  a = 1; b = 2; c = 2; d = 4; e = 3; f = 5
   Y = apply(cbind(df$A, df$treated_neigh, df$interaction1, df$interaction2, 
                   df$interaction3, df$interaction4), 1, #X_num,
             function(x)  rnorm(1, mean = a*x[1] + b*x[2] + c*x[3] + 
@@ -114,5 +115,5 @@ result_c2 <- foreach(i = 1:500, .combine="c") %do% {
   output = list(list(nocon = a, inf = b, sp = c, mixed = d))
 }
 
-saveRDS(result_c2, "cluster_results/mixed_model_cat_var.RDS")
+saveRDS(result_c2, "check_results/mixed_model_cat_var.RDS")
 
