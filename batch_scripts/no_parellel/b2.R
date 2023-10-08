@@ -3,10 +3,8 @@ source("point_estimates/point_estimates.R")
 source("utils/integrand.R")
 source("utils/utils.R")
 source("variances/bootstrap_variance.R")
-source("variances/m_variance.R")
 source("variances/regression_variance.R")
 source("variances/regression_utils.R")
-source("variances/regression_utils_neigh.R")
 source("utils/mixed_effects.R")
 
 library(igraph)
@@ -45,7 +43,7 @@ result_b2 <- foreach(i = 1:200, .combine="c") %do% {
   
   G_mat = as.matrix(G)
   X1 <- sample(c("M", "F"), size = length(A), replace = TRUE)
-  X2 <- rnorm(length(A),mean = 0.5, sd = 1)
+  X2 <- rnorm(length(A),mean = 0.5, sd = 0.5)
   
   X <- cbind(X1, X2)
   X_type <- c("C", "N")
@@ -66,7 +64,7 @@ result_b2 <- foreach(i = 1:200, .combine="c") %do% {
   ##########
   # 2. Outcome model
   #a = 0; b = 1; c = 1; d = 2; e = 3; f = 4
-  a = 1; b = 2; c = 2; d = 4; e = 3; f = 5
+  a = 1; b = 1; c = 1; d = 2; e = 3; f = 4
   Y = apply(cbind(df$A, df$treated_neigh, df$interaction1, df$interaction2, 
                   df$interaction3, df$interaction4), 1, #X_num,
             function(x)  rnorm(1, mean = a*x[1] + b*x[2] + c*x[3] + 
@@ -132,4 +130,4 @@ result_b2 <- foreach(i = 1:200, .combine="c") %do% {
   output = list(list(nocon = a, inf = b, sp = c, mixed = d, boot_inf = b2))
 }
 
-saveRDS(result_b2, "check_results/mixed_model_both_var(sd = 1, w/boot).RDS")
+saveRDS(result_b2, "check_results/mixed_model_both_var_w_boot_newvarpara.RDS")

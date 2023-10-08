@@ -3,10 +3,8 @@ source("point_estimates/point_estimates.R")
 source("utils/integrand.R")
 source("utils/utils.R")
 source("variances/bootstrap_variance.R")
-source("variances/m_variance.R")
 source("variances/regression_variance.R")
 source("variances/regression_utils.R")
-source("variances/regression_utils_neigh.R")
 source("utils/mixed_effects.R")
 
 library(igraph)
@@ -14,7 +12,7 @@ library(lme4)
 library(foreach)
 library(doMC)
 
-result_c0 <- foreach(i = 1:500, .combine="c") %do% {
+result_c0 <- foreach(i = 1:200, .combine="c") %do% {
   
   ##########
   #1. Generate a graph and dataset (treatments, covariates)
@@ -60,7 +58,7 @@ result_c0 <- foreach(i = 1:500, .combine="c") %do% {
   
   ##########
   # 2. Outcome model
-  a = 1; b = 2; c = 3; d = 4
+  a = 1; b = 1; c = 1; d = 2
   Y = apply(cbind(df$A, df$treated_neigh, df$interaction1, df$interaction2), 1, #X_num,
             function(x)  rnorm(1, mean = a*x[1] + b*x[2] + c*x[3] + d*x[4], sd = 1))  
   H = h_neighborhood(graph, Y, 1) 

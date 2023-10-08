@@ -8,7 +8,11 @@ var_para <- function(reg_coef, a, t, X_reg, H, weights_ind, A, G, cat_ind){
   trt_ind <- ifelse((A == t), 1, NA)
   cross_ind <- trt_ind * cat_ind
   weight_t <- weights_ind[, , a, t] * cross_ind # select A = t and x0 = some categorical value
-  psi_mat <- as.matrix(replicate(dim(X_reg)[2], (weight_t * res_ij))) * X_reg # extend to the dimension of X_reg
+  
+  # psi_mat <- as.matrix(replicate(dim(X_reg)[2], (weight_t * res_ij))) * X_reg 
+  # 100123: subset w. cat_ind = 1 and include A != a as 0 instead of NULL
+  psi_mat <- as.matrix(replicate(dim(X_reg)[2], (weights_ind[, , a, t]  * res_ij))) * X_reg 
+  psi_mat <- psi_mat[cat_ind == 1, ]
   psi_data <- as.data.frame(cbind(G, psi_mat))
   psi_group <- aggregate(psi_data[,-1], list(psi_data$G), FUN = mean, na.rm = TRUE)
   
@@ -20,13 +24,12 @@ var_para <- function(reg_coef, a, t, X_reg, H, weights_ind, A, G, cat_ind){
   psid_mat_grp <- array(dim = c(len_n+1, len_n+1, N)) 
   
   for (w in 1:N){
+    # 100123: change the denominator
     psid_data_grp <- psid_data[psid_data$G == w & !is.na(psid_data$cat_ind),]
-    psid_mat_grp[, , w] <- t(as.matrix(psid_data_grp[,3:(3+len_n)])) %*% 
-      as.matrix(psid_data_grp[,(4+len_n):(4+2*len_n)])/sum(psid_data_grp$A == t)
-      #dim(psid_data_grp)[1]
-      #sum(psid_data_grp$A == t)
     # psid_mat_grp[, , w] <- t(as.matrix(psid_data_grp[,3:(3+len_n)])) %*% 
-    #    as.matrix(psid_data_grp[,(4+len_n):(4+2*len_n)])/dim(psid_data_grp)[1]
+    #   as.matrix(psid_data_grp[,(4+len_n):(4+2*len_n)])/sum(psid_data_grp$A == t)
+    psid_mat_grp[, , w] <- t(as.matrix(psid_data_grp[,3:(3+len_n)])) %*%
+       as.matrix(psid_data_grp[,(4+len_n):(4+2*len_n)])/dim(psid_data_grp)[1]
   }
   
   outcomes = list(psi_group, psid_mat_grp, X_fit * cross_ind)

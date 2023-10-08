@@ -17,7 +17,7 @@ source("propensity/propensity_utils.R")
 source("propensity/propensity_effect_calc.R")
 source("point_estimates/point_estimates_utils.R")
 source("propensity/second_stage_utils.R")
-
+source("propensity/weights_utils_for_propensity.R")
 source("propensity/propensity_weighted_regression.R")
 
 library(igraph)
@@ -52,7 +52,7 @@ for (i in 1:100) {
   P = c(0.5,0.5) 
   
   # Assume random effect ~ N(0, 0.2^2) for each group
-  ranef <- rnorm(noc, mean = 0, sd = 0.01)
+  ranef <- rnorm(noc, mean = 0, sd = 0.2)
   group_ef <- rep(ranef, each = ss)
   
   # assign to group 1 (0.4) and group 2 (0.6) randomly
@@ -100,7 +100,7 @@ for (i in 1:100) {
   
   ##########
   # 2. Outcome model
-  aa = 2; bb = 5; cc = 7; dd = 9
+  aa = 1; bb = 1; cc = 1; dd = 2
   Y = apply(cbind(df$A, df$treated_neigh, df$interaction1, df$interaction2), 1, function(x)  rnorm(1, mean = aa*x[1] + bb*x[2] + cc*x[3] + dd*x[4], sd = 1))  
   H = h_neighborhood(graph, Y, 1) 
   H_M =  h_neighborhood(graph, Y, 1, X_cat, c("M")) 
@@ -158,6 +158,7 @@ for (i in 1:100) {
                                                 x0 = x0,
                                                 X_type = c("C", "N"),
                                                 Con_type = "group")
+    #323.8679   54.2206 217.5974  430.1383
     result_G = rbind(result_G, obj_G)
     
     obj_G1 <- ipw_propensity_variance_regression(parameters = parameters,
@@ -175,7 +176,7 @@ for (i in 1:100) {
                                                  X_type = c("N"),
                                                  Con_type = "group")
     result_G1 = rbind(result_G1, obj_G1)
-    
+    #311.8467  52.49378 208.9608  414.7326
     # obj_G2 <- ipw_propensity_variance_second(parameters = parameters,
     #                                       allocations = allocations,
     #                                       causal_estimation_options = 
@@ -222,11 +223,12 @@ for (i in 1:100) {
                                                 x1 = as.matrix(x1_num), # x1
                                                 X_type = c("N"), # X_type
                                                 Con_type = "neigh")
+    # 279.4039  54.49885 172.5881  386.2196
     result_N = rbind(result_N, obj_N)
   }, silent = TRUE)
 }
 
-saveRDS(result_G, "cluster_results/second_propensity_outcome_group.RDS")
-saveRDS(result, "cluster_results/second_propensity_outcome_nocon.RDS")
-saveRDS(result_N, "cluster_results/second_propensity_outcome_neigh.RDS")
-saveRDS(result_G1, "cluster_results/second_propensity_outcome_group1.RDS")
+saveRDS(result_G, "cluster_results/second_propensity_outcome_group_new_weight.RDS")
+#saveRDS(result, "cluster_results/second_propensity_outcome_nocon_new_weight.RDS")
+saveRDS(result_N, "cluster_results/second_propensity_outcome_neigh_new_weight.RDS")
+saveRDS(result_G1, "cluster_results/second_propensity_outcome_group1_new_weight.RDS")

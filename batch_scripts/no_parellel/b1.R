@@ -3,10 +3,8 @@ source("point_estimates/point_estimates.R")
 source("utils/integrand.R")
 source("utils/utils.R")
 source("variances/bootstrap_variance.R")
-source("variances/m_variance.R")
 source("variances/regression_variance.R")
 source("variances/regression_utils.R")
-source("variances/regression_utils_neigh.R")
 source("utils/mixed_effects.R")
 
 library(igraph)
@@ -15,11 +13,14 @@ library(foreach)
 library(doMC)
 
 # get index of this run
-args = commandArgs(trailingOnly=TRUE)
-num_sims = args[1]
-num_bootstrap_samples = args[2]
-run_idx = args[3]
-print(args)
+# args = commandArgs(trailingOnly=TRUE)
+# num_sims = args[1]
+# num_bootstrap_samples = args[2]
+# run_idx = args[3]
+# print(args)
+
+num_sims = 200
+num_bootstrap_samples = 50
 
 # Influencer Model 
 ### 3. both variables ###
@@ -52,7 +53,7 @@ result_b1 <- foreach(i = 1:num_sims, .combine="c") %do% {
   
   G_mat = as.matrix(G)
   X1 <- sample(c("M", "F"), size = length(A), replace = TRUE)
-  X2 <- rnorm(length(A),mean = 0.5, sd = 1)
+  X2 <- rnorm(length(A),mean = 0.5, sd = 0.5)
   
   X <- cbind(X1, X2)
   X_type <- c("C", "N")
@@ -72,7 +73,7 @@ result_b1 <- foreach(i = 1:num_sims, .combine="c") %do% {
   ##########
   # 2. Outcome model
   # a = 0; b = 1; c = 1; d = 2
-  a = 1; b = 2; c = 3; d = 4
+  a = 1; b = 1; c = 1; d = 2
   Y = apply(cbind(df$A, df$treated_neigh, df$interaction1, df$interaction2), 1, #X_num,
             function(x)  rnorm(1, mean = a*x[1] + b*x[2] + c*x[3] + d*x[4], sd = 1))  
   H = h_neighborhood(graph, Y, 1) 
@@ -138,7 +139,7 @@ result_b1 <- foreach(i = 1:num_sims, .combine="c") %do% {
 #  "check_results/inf_model_both_var(sd=1, w/boot, run=", 
 #  run_idx, 
 #  ").RDS", sep='')
-saveRDS(result_b1, "check_results/inf_model_both_var(sd = 1, w/boot).RDS")
+saveRDS(result_b1, "check_results/inf_model_both_var_w_boot_newvarpara.RDS")
 
 
 

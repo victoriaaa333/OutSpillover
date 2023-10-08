@@ -27,7 +27,7 @@ group_coefs_oncont1 <- function(weights_df, H, G, X, X_type, x0, A, a){
   if (sum(X_type == "C") > 0){
     ind_cond <- which(apply(X_cat, 1, function(x) prod(x == x0_cat)) == 1)
   }else{
-    ind_cond <- 1:dim(X_cat)[1]}
+    ind_cond <- 1:length(A)}
   
   #verall_fits = lm(H ~ A +X2 + A*X2, weights = w, data = fits_df)
   if (sum(X_type == "N") > 0){
@@ -211,7 +211,8 @@ group_coefs_oncont1 <- function(weights_df, H, G, X, X_type, x0, A, a){
     x0_cat <- x0[X_type == "C"]
     ind_cond <- which(apply(X_cat, 1, function(x) prod(x == x0_cat)) == 1)
   }else{
-    ind_cond <- 1:dim(X_cat)[1]}
+    ind_cond <- 1:dim(X)[1]
+    }
   
   if (sum(X_type == "N") > 0){
     group_df <- as.data.frame(cbind(weights_df, H, G, X_num))

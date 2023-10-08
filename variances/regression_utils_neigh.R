@@ -16,7 +16,9 @@ var_para_neigh <- function(reg_coef, a1, t1, neighinfo, H, weights_ind, A, G){
   res_ij <- (H - X_fit) # \mu - \betaX
   trt_ind <- ifelse((A == t1), 1, NA)
   weight_t1 <- weights_ind[, , a1, t1] * trt_ind
-  psi_mat <- as.matrix(replicate(dim(X_reg)[2], (weight_t1 * res_ij))) * X_reg # extend to the dimension of X_reg
+  #psi_mat <- as.matrix(replicate(dim(X_reg)[2], (weight_t1 * res_ij))) * X_reg
+  # 100123: include A != a as 0 instead of NULL
+  psi_mat <- as.matrix(replicate(dim(X_reg)[2], (weights_ind[, , a1, t1] * res_ij))) * X_reg
   psi_data <- as.data.frame(cbind(G, psi_mat))
   psi_group <- aggregate(psi_data[,-1], list(psi_data$G), FUN = mean, na.rm = TRUE)
   colnames(psi_group) <- c("G", "intcp", colnames(neighX))
@@ -27,8 +29,11 @@ var_para_neigh <- function(reg_coef, a1, t1, neighinfo, H, weights_ind, A, G){
   
   for (w in 1:N){
     psid_data_grp <- psid_data[G == w,]
+    # 100123: replace the denominator 
+    # psid_mat_grp[, , w] <- t(as.matrix(psid_data_grp[,3:(3+len_h)])) %*% 
+    #   as.matrix(psid_data_grp[,(4+len_h):(4+2*len_h)])/sum(psid_data_grp$A == t1)
     psid_mat_grp[, , w] <- t(as.matrix(psid_data_grp[,3:(3+len_h)])) %*% 
-      as.matrix(psid_data_grp[,(4+len_h):(4+2*len_h)])/sum(psid_data_grp$A == t1)
+      as.matrix(psid_data_grp[,(4+len_h):(4+2*len_h)])/length(psid_data_grp$A)
    }
   
   outcomes = list(psi_group, psid_mat_grp, X_fit* trt_ind)

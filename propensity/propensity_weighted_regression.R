@@ -527,7 +527,8 @@ ipw_interference_regression <- function(propensity_integrand,
                              propensity_X = propensity_X, A = A, G = G, P = P,
                              parameters = parameters,
                              runSilent  = runSilent, #BB 2015-06-23
-                             integrate_allocation = integrate_allocation
+                             integrate_allocation = integrate_allocation,
+                             first_assignments = first_assignments #100123
                         ))
   #score_args <- append(weight_args, list(first_assignments = first_assignments))
   
@@ -535,10 +536,11 @@ ipw_interference_regression <- function(propensity_integrand,
   out <- list()  
   
   ## Compute Weights ##
-  weights <- do.call(wght_matrix_second, args = weight_args)
+  # 100123: change wght_matrix_second to wght_matrix_second_prop
+  weights <- do.call(wght_matrix_second_prop, args = weight_args)
   
   if(variance_estimation == 'robust'){
-    weightd <- do.call(wght_deriv_array_second, args = append(weight_args, grad_args))
+    weightd <- do.call(wght_deriv_array_second_prop, args = append(weight_args, grad_args))
     out$weightd <- weightd
   }
   #   U11 <- do.call(score_matrix_deriv, args = append(score_args, grad_args))

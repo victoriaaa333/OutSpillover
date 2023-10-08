@@ -3,10 +3,8 @@ source("point_estimates/point_estimates.R")
 source("utils/integrand.R")
 source("utils/utils.R")
 source("variances/bootstrap_variance.R")
-source("variances/m_variance.R")
 source("variances/regression_variance.R")
 source("variances/regression_utils.R")
-source("variances/regression_utils_neigh.R")
 source("utils/mixed_effects.R")
 
 library(igraph)
@@ -26,7 +24,7 @@ library(doMC)
 
 ### 2. numerical variable ###
 print("Starting numerical for mixed")
-result_n2 <- foreach(i = 1:500, .combine="c") %do% {
+result_n2 <- foreach(i = 1:200, .combine="c") %do% {
   
   ##########
   #1. Generate a graph and dataset (treatments, covariates)
@@ -70,7 +68,7 @@ result_n2 <- foreach(i = 1:500, .combine="c") %do% {
   
   ##########
   # 2. Outcome model
-  a = 0; b = 1; c = 1; d = 2; e = 3; f = 4
+  a = 1; b = 1; c = 1; d = 2; e = 3; f = 4
   Y = apply(cbind(df$A, df$treated_neigh, df$interaction1, df$interaction2, 
                   df$interaction3, df$interaction4), 1, 
             function(x)  rnorm(1, mean = a*x[1] + b*x[2] + c*x[3] + 
@@ -127,4 +125,4 @@ result_n2 <- foreach(i = 1:500, .combine="c") %do% {
   output = list(list(nocon = a, inf = b, sp = c, mixed = d))
 }
 
-saveRDS(result_n2, "cluster_results/mixed_model_num_var(sd = 0.5).RDS")
+saveRDS(result_n2, "check_results/mixed_model_num_var_newvarpara.RDS")

@@ -7,7 +7,8 @@ output: html_document
 
 ```{r}
 setwd("~/OutSpillover")
-dat <- rbind(readRDS("cluster_results/second_propensity_outcome_neigh.RDS"))
+dat <- rbind(readRDS("cluster_results/second_propensity_outcome_group1_new_weight.RDS"))
+# cluster_results/second_propensity_outcome_neigh.RDS
 # cluster_results/second_propensity_neigh (new UVU, diffX)4.RDS
 # cluster_results/second_propensity_group1 (new UVU, noc = 100, nsim = 100).RDS
 ```
@@ -20,8 +21,8 @@ lq_std <- quantile(dat$std.error, 0.025, na.rm = TRUE)
 
 #dat <- dat[dat$estimate > lq & dat$estimate < hq & dat$std.error > lq_std & dat$std.error < hq_std, ] 
 
-#sd(dat$estimate[intersect(which(dat$estimate > lq), which(dat$estimate < hq))])
-#mean(dat[intersect(which(dat$std.error > lq_std), which(dat$std.error < hq_std)),]$std.error)
+sd(dat$estimate[intersect(which(dat$estimate > lq), which(dat$estimate < hq))])
+mean(dat[intersect(which(dat$std.error > lq_std), which(dat$std.error < hq_std)),]$std.error)
 sd(dat$estimate)
 mean(dat$std.error, na.rm = TRUE)
 mean(dat$estimate)

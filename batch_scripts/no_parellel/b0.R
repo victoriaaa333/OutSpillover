@@ -19,7 +19,7 @@ library(doMC)
 ### 3. both variables ###
 print("Starting both for spillover")
 
-result_b0 <- foreach(i = 1:200, .combine="c") %do% {
+result_b0 <- foreach(i = 1:200 , .combine="c") %do% {
   
   ##########
   #1. Generate a graph and dataset (treatments, covariates)
@@ -46,7 +46,7 @@ result_b0 <- foreach(i = 1:200, .combine="c") %do% {
   
   G_mat = as.matrix(G)
   X1 <- sample(c("M", "F"), size = length(A), replace = TRUE)
-  X2 <- rnorm(length(A),mean = 0.5, sd = 1)
+  X2 <- rnorm(length(A),mean = 0.5, sd = 0.5)
   
   X <- cbind(X1, X2)
   X_type <- c("C", "N")
@@ -65,7 +65,7 @@ result_b0 <- foreach(i = 1:200, .combine="c") %do% {
   ##########
   # 2. Outcome model
   # a = 0; b = 1; c = 1; d = 2
-  a = 1; b = 2; c = 3; d = 4
+  a = 1; b = 1; c = 1; d = 2
   Y = apply(cbind(df$A, df$treated_neigh, df$interaction1, df$interaction2), 1, #X_num,
             function(x)  rnorm(1, mean = a*x[1] + b*x[2] + c*x[3] + d*x[4], sd = 1))  
   H = h_neighborhood(graph, Y, 1) 
@@ -119,15 +119,15 @@ result_b0 <- foreach(i = 1:200, .combine="c") %do% {
                                     X = X, X_type = X_type, x0 = x0,
                                     neighinfo = neighinfo, x1_num = x1_num)
   
-  boots = BootVar(df, 0.5, denominator_alphas, P, 
-               boot_variable = "H", X_variable = c("X1", "X2"), x0 = x0,
-                B = 50, verbose = FALSE, return_everything = FALSE)
-  
+  boots = BootVar(df, 0.5, denominator_alphas, P,
+  boot_variable = "H", X_variable = c("X1", "X2"), x0 = x0,
+  B = 50, verbose = FALSE, return_everything = FALSE)
+
   b2 = var(apply(boots, 3, function(x) x[2] - x[1]), na.rm = TRUE)
   
-  output = list(list(nocon = a, inf = b, sp = c, mixed = d, boot_inf = b2))
+  output = list(list(nocon = a, inf = b, sp = c, mixed = d, boot_inf = b2))#
 }
 
 # 092923: rerun to check for the estimator without propensity score
-saveRDS(result_b0, "check_results/sp_model_both_var(sd = 1, w/boot).RDS")
+saveRDS(result_b0, "check_results/sp_model_both_var_w_boot_newvarpara.RDS")
 
